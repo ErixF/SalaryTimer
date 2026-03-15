@@ -19,6 +19,8 @@ struct ContentView: View {
     @State private var daysPerMonthText: String = ""
     @State private var showPopup = false
     @State private var showConfiguration = true
+    @State private var resetTapCount = 0
+    @State private var lastResetTapDate: Date? = nil
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.colorScheme) private var colorScheme
@@ -89,20 +91,6 @@ struct ContentView: View {
                     )
                 }
             }
-            .navigationTitle("Touch Fish")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                if verticalSizeClass == .regular {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showPopup = true
-                        } label: {
-                            Image(systemName: "questionmark.circle")
-                        }
-                    }
-                }
-            }
-            .toolbarBackground(.automatic, for: .navigationBar)
             .alert("RESET APP", isPresented: $showPopup) {
                 Button("OK", action: resetApp)
             }
@@ -150,10 +138,10 @@ struct ContentView: View {
                 configurationSection
             }
             .padding(.horizontal, 20)
-            .padding(.top, 24)
+            .padding(.top, 48)
             .padding(.bottom, 32)
         }
-        .safeAreaPadding(.top, 12)
+        .safeAreaPadding(.top, 24)
     }
 
     private func landscapeLayout(width: CGFloat) -> some View {
@@ -170,7 +158,8 @@ struct ContentView: View {
                     .frame(maxWidth: 360)
                 }
                 .padding(.horizontal, 24)
-                .padding(.vertical, 20)
+                .padding(.top, 56)
+                .padding(.bottom, 20)
             } else {
                 Text("Go get an iPhone")
                     .font(.system(size: 72, weight: .bold, design: .rounded))
@@ -184,19 +173,19 @@ struct ContentView: View {
         VStack(spacing: 18) {
             Text(isRunning ? "Clocked In" : "Ready To Drift")
                 .font(.headline)
-                .foregroundStyle(.white.opacity(0.78))
+                .foregroundStyle(.black.opacity(0.78))
 
             VStack(spacing: 10) {
                 Text(totalEarned, format: .currency(code: "CAD"))
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black)
 
                 Text(elapsedClockText)
                     .font(.title3.weight(.medium))
                     .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(.black.opacity(0.70))
             }
 
             rateChip
@@ -215,10 +204,10 @@ struct ContentView: View {
             Text("/ sec")
         }
         .font(.subheadline.weight(.medium))
-        .foregroundStyle(.white.opacity(0.78))
+        .foregroundStyle(.black.opacity(0.78))
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.10), in: Capsule())
+        .background(Color.white.opacity(0.28), in: Capsule())
     }
 
     private var controlSection: some View {
@@ -242,6 +231,11 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
             }
             .controlButtonStyle(prominent: false, tint: .orange)
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    registerHiddenResetTap()
+                }
+            )
         }
     }
 
@@ -371,6 +365,23 @@ struct ContentView: View {
         elapsed = 0
     }
 
+    private func registerHiddenResetTap() {
+        let now = Date()
+        if let lastResetTapDate, now.timeIntervalSince(lastResetTapDate) <= 0.8 {
+            resetTapCount += 1
+        } else {
+            resetTapCount = 1
+        }
+
+        lastResetTapDate = now
+
+        if resetTapCount >= 10 {
+            resetTapCount = 0
+            lastResetTapDate = nil
+            showPopup = true
+        }
+    }
+
     /// Reset all inputs and timer to initial state.
     private func resetApp() {
         stopTimer()
@@ -381,6 +392,8 @@ struct ContentView: View {
         hoursPerDayText = ""
         daysPerMonthText = ""
         elapsed = 0
+        resetTapCount = 0
+        lastResetTapDate = nil
     }
 }
 
