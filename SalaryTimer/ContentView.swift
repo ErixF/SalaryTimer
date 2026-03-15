@@ -133,12 +133,13 @@ struct ContentView: View {
     private var portraitLayout: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
+                screenTitle
                 heroSection
                 controlSection
                 configurationSection
             }
             .padding(.horizontal, 20)
-            .padding(.top, 48)
+            .padding(.top, 34)
             .padding(.bottom, 32)
         }
         .safeAreaPadding(.top, 24)
@@ -147,19 +148,22 @@ struct ContentView: View {
     private func landscapeLayout(width: CGFloat) -> some View {
         Group {
             if width < 1000 {
-                HStack(spacing: 24) {
-                    heroSection
-                        .frame(maxWidth: .infinity)
+                ZStack {
+                    Color.black
+                        .ignoresSafeArea()
 
                     VStack(spacing: 18) {
-                        controlSection
-                        configurationSection
+                        landscapeAmount
+
+                        if width > 700 {
+                            Text(elapsedClockText)
+                                .font(.system(size: 36, weight: .medium, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(.white.opacity(0.82))
+                        }
                     }
-                    .frame(maxWidth: 360)
+                    .padding(.horizontal, 24)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 56)
-                .padding(.bottom, 20)
             } else {
                 Text("Go get an iPhone")
                     .font(.system(size: 72, weight: .bold, design: .rounded))
@@ -169,14 +173,20 @@ struct ContentView: View {
         }
     }
 
+    private var screenTitle: some View {
+        Text("Getting Paid to Exist")
+            .font(.system(size: 28, weight: .bold, design: .rounded))
+            .foregroundStyle(.white.opacity(0.96))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.bottom, 4)
+            .padding(.top, 15)
+    }
+
     private var heroSection: some View {
         VStack(spacing: 18) {
-            Text(isRunning ? "Clocked In" : "Ready To Drift")
-                .font(.headline)
-                .foregroundStyle(.black.opacity(0.78))
-
-            VStack(spacing: 10) {
-                Text(totalEarned, format: .currency(code: "CAD"))
+            VStack(spacing: 12) {
+                Text("$\(totalEarned.formatted(.number.precision(.fractionLength(2))))")
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
@@ -196,10 +206,20 @@ struct ContentView: View {
         .heroSurface()
     }
 
+    private var landscapeAmount: some View {
+        Text("$\(totalEarned.formatted(.number.precision(.fractionLength(2))))")
+            .font(.system(size: 108, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .minimumScaleFactor(0.35)
+            .lineLimit(1)
+            .foregroundStyle(.white.opacity(0.82))
+            .padding(.horizontal, 24)
+    }
+
     private var rateChip: some View {
         HStack(spacing: 4) {
             Text("≈")
-            Text(earningPerSecond, format: .currency(code: "CAD").precision(.fractionLength(4)))
+            Text("$\(earningPerSecond.formatted(.number.precision(.fractionLength(4))))")
                 .monospacedDigit()
             Text("/ sec")
         }
