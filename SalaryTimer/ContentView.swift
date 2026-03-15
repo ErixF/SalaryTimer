@@ -249,6 +249,7 @@ struct ContentView: View {
         HStack(spacing: 12) {
             Button(action: startTimer) {
                 Label(isRunning ? "Running" : "Start", systemImage: isRunning ? "play.fill" : "play.circle.fill")
+                    .padding(.vertical, 5)
                     .frame(maxWidth: .infinity)
             }
             .controlButtonStyle(prominent: true, tint: accentColor)
@@ -256,6 +257,7 @@ struct ContentView: View {
 
             Button(action: stopTimer) {
                 Label("Stop", systemImage: "pause.fill")
+                    .padding(.vertical, 5)
                     .frame(maxWidth: .infinity)
             }
             .controlButtonStyle(prominent: false, tint: .red)
@@ -263,6 +265,7 @@ struct ContentView: View {
 
             Button(action: resetTimer) {
                 Label("Reset", systemImage: "arrow.counterclockwise")
+                    .padding(.vertical, 5)
                     .frame(maxWidth: .infinity)
             }
             .controlButtonStyle(prominent: false, tint: .orange)
@@ -473,12 +476,12 @@ private extension View {
             if prominent {
                 self
                     .font(.headline)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 10)
                     .buttonStyle(GlassProminentButtonStyle())
             } else {
                 self
                     .font(.headline)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 10)
                     .buttonStyle(GlassButtonStyle())
                     .tint(tint)
             }
@@ -486,13 +489,13 @@ private extension View {
             if prominent {
                 self
                     .font(.headline)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 10)
                     .buttonStyle(BorderedProminentButtonStyle())
                     .tint(tint)
             } else {
                 self
                     .font(.headline)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 10)
                     .buttonStyle(BorderedButtonStyle())
                     .tint(tint)
             }
