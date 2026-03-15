@@ -29,12 +29,17 @@ struct ContentView: View {
     @State private var elapsed: TimeInterval = 0
     @State private var timer: Timer? = nil
     @State private var lastStart: Date? = nil
+    @State private var liveActivity: Activity<SalaryTimerAttributes>? = nil
+    @State private var liveActivitySessionStartDate: Date? = nil
+    @State private var lastLiveActivityRefreshDate: Date? = nil
+    @State private var lastLiveActivityRate: Double = 0
 
     private var hourlyRate: Double { Double(hourlyRateText) ?? 0 }
     private var monthlyIncome: Double { Double(monthlyIncomeText) ?? 0 }
     private var taxRate: Double { Double(taxRateText) ?? 0 }
     private var hoursPerDay: Double { Double(hoursPerDayText) ?? 0 }
     private var daysPerMonth: Double { Double(daysPerMonthText) ?? 0 }
+    private let liveActivityRefreshInterval: TimeInterval = 15
 
     /// Net earning per second, after tax.
     private var earningPerSecond: Double {
@@ -383,19 +388,23 @@ struct ContentView: View {
     // MARK: - Timer controls
     private func startTimer() {
         guard timer == nil else { return }
-        lastStart = Date()
+        let now = Date()
+        lastStart = now
+        liveActivitySessionStartDate = now
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if let start = lastStart {
-                elapsed += Date().timeIntervalSince(start)
-                lastStart = Date()
-            }
+            commitElapsed()
+            refreshLiveActivityIfNeeded()
         }
+        startLiveActivity(at: now)
     }
 
     private func stopTimer() {
+        let now = Date()
+        commitElapsed(to: now)
         timer?.invalidate()
         timer = nil
         lastStart = nil
+        endLiveActivity(at: now)
     }
 
     private func resetTimer() {
@@ -423,6 +432,7 @@ struct ContentView: View {
     /// Reset all inputs and timer to initial state.
     private func resetApp() {
         stopTimer()
+        endAllLiveActivities()
         incomeType = 0
         hourlyRateText = ""
         monthlyIncomeText = ""
@@ -432,6 +442,105 @@ struct ContentView: View {
         elapsed = 0
         resetTapCount = 0
         lastResetTapDate = nil
+        liveActivitySessionStartDate = nil
+    }
+
+    private func commitElapsed(to now: Date = Date()) {
+        guard let start = lastStart else { return }
+        elapsed += now.timeIntervalSince(start)
+        lastStart = now
+    }
+
+    private func currentLiveActivityState(at now: Date) -> SalaryTimerAttributes.ContentState {
+        SalaryTimerAttributes.ContentState(
+            sessionStartDate: liveActivitySessionStartDate ?? now,
+            amountAnchorDate: now,
+            startingAmount: totalEarned,
+            earningPerSecond: earningPerSecond
+        )
+    }
+
+    private func startLiveActivity(at now: Date) {
+        guard #available(iOS 16.1, *), earningPerSecond > 0 else { return }
+
+        let attributes = SalaryTimerAttributes(currencyCode: "USD")
+        let content = ActivityContent(state: currentLiveActivityState(at: now), staleDate: nil)
+
+        Task {
+            if let existingActivity = liveActivity {
+                await existingActivity.end(nil, dismissalPolicy: ActivityUIDismissalPolicy.immediate)
+            }
+
+            do {
+                liveActivity = try Activity.request(attributes: attributes, content: content, pushType: nil)
+                lastLiveActivityRefreshDate = now
+                lastLiveActivityRate = earningPerSecond
+            } catch {
+                liveActivity = nil
+            }
+        }
+    }
+
+    private func refreshLiveActivityIfNeeded(force: Bool = false) {
+        guard #available(iOS 16.1, *), let liveActivity else { return }
+
+        let now = Date()
+        let rateChanged = abs(earningPerSecond - lastLiveActivityRate) > 0.000_001
+        let isRefreshDue = lastLiveActivityRefreshDate.map { now.timeIntervalSince($0) >= liveActivityRefreshInterval } ?? true
+
+        guard force || rateChanged || isRefreshDue else { return }
+
+        let content = ActivityContent(state: currentLiveActivityState(at: now), staleDate: nil)
+
+        Task {
+            await liveActivity.update(content)
+            lastLiveActivityRefreshDate = now
+            lastLiveActivityRate = earningPerSecond
+        }
+    }
+
+    private func endLiveActivity(at now: Date) {
+        guard #available(iOS 16.1, *) else { return }
+        guard let liveActivity else {
+            lastLiveActivityRefreshDate = nil
+            lastLiveActivityRate = 0
+            return
+        }
+
+        let content = ActivityContent(state: currentLiveActivityState(at: now), staleDate: now)
+
+        Task {
+            await liveActivity.end(content, dismissalPolicy: ActivityUIDismissalPolicy.immediate)
+            self.liveActivity = nil
+            liveActivitySessionStartDate = nil
+            lastLiveActivityRefreshDate = nil
+            lastLiveActivityRate = 0
+        }
+    }
+
+    private func endAllLiveActivities() {
+        guard #available(iOS 16.1, *) else { return }
+
+        let activities = Activity<SalaryTimerAttributes>.activities
+
+        guard !activities.isEmpty else {
+            liveActivity = nil
+            liveActivitySessionStartDate = nil
+            lastLiveActivityRefreshDate = nil
+            lastLiveActivityRate = 0
+            return
+        }
+
+        Task {
+            for activity in activities {
+                await activity.end(nil, dismissalPolicy: ActivityUIDismissalPolicy.immediate)
+            }
+
+            liveActivity = nil
+            liveActivitySessionStartDate = nil
+            lastLiveActivityRefreshDate = nil
+            lastLiveActivityRate = 0
+        }
     }
 }
 

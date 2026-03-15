@@ -6,10 +6,12 @@
 //
 
 import ActivityKit
+import Foundation
 
 struct SalaryTimerAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
-        var startDate: Date
+        var sessionStartDate: Date
+        var amountAnchorDate: Date
         var startingAmount: Double
         var earningPerSecond: Double
     }

@@ -6,13 +6,15 @@
 //
 
 import ActivityKit
+import Foundation
 
 struct SalaryTimerAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
-    // the only piece of data we’ll display
-    var totalEarned: Double
+    var sessionStartDate: Date
+    var amountAnchorDate: Date
+    var startingAmount: Double
+    var earningPerSecond: Double
   }
 
-  // you can put any fixed metadata here (e.g. currency symbol)
   var currencyCode: String = "USD"
 }
