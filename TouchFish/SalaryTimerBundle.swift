@@ -12,6 +12,6 @@ import SwiftUI
 struct TouchFishBundle: WidgetBundle {
     var body: some Widget {
         TouchFish()
-        TouchFishLiveActivity()
+        SalaryTimerLiveActivity()
     }
 }
