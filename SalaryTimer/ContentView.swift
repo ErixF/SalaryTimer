@@ -61,6 +61,18 @@ struct ContentView: View {
         isRunning ? .orange : .cyan
     }
 
+    private var heroPrimaryTextColor: Color {
+        colorScheme == .dark ? .white : .black
+    }
+
+    private var heroSecondaryTextColor: Color {
+        colorScheme == .dark ? .white.opacity(0.78) : .black.opacity(0.70)
+    }
+
+    private var heroChipTextColor: Color {
+        colorScheme == .dark ? .white.opacity(0.84) : .black.opacity(0.78)
+    }
+
     private var elapsedClockText: String {
         let totalSeconds = Int(elapsed)
         let minutes = totalSeconds / 60
@@ -190,12 +202,12 @@ struct ContentView: View {
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(heroPrimaryTextColor)
 
                 Text(elapsedClockText)
                     .font(.title3.weight(.medium))
                     .monospacedDigit()
-                    .foregroundStyle(.black.opacity(0.70))
+                    .foregroundStyle(heroSecondaryTextColor)
             }
 
             rateChip
@@ -224,10 +236,13 @@ struct ContentView: View {
             Text("/ sec")
         }
         .font(.subheadline.weight(.medium))
-        .foregroundStyle(.black.opacity(0.78))
+        .foregroundStyle(heroChipTextColor)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.28), in: Capsule())
+        .background(
+            colorScheme == .dark ? Color.white.opacity(0.14) : Color.white.opacity(0.28),
+            in: Capsule()
+        )
     }
 
     private var controlSection: some View {
