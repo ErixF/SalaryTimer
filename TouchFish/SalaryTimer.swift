@@ -1,6 +1,6 @@
 //
-//  TouchFish.swift
-//  TouchFish
+//  SalaryTimer.swift
+//  SalaryTimer
 //
 //  Created by Eric Feng on 5/22/25.
 //
@@ -43,7 +43,7 @@ struct SimpleEntry: TimelineEntry {
     let emoji: String
 }
 
-struct TouchFishEntryView : View {
+struct SalaryTimerEntryView : View {
     var entry: Provider.Entry
 
     var body: some View {
@@ -57,16 +57,16 @@ struct TouchFishEntryView : View {
     }
 }
 
-struct TouchFish: Widget {
-    let kind: String = "TouchFish"
+struct SalaryTimer: Widget {
+    let kind: String = "SalaryTimer"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
             if #available(iOS 17.0, *) {
-                TouchFishEntryView(entry: entry)
+                SalaryTimerEntryView(entry: entry)
                     .containerBackground(.fill.tertiary, for: .widget)
             } else {
-                TouchFishEntryView(entry: entry)
+                SalaryTimerEntryView(entry: entry)
                     .padding()
                     .background()
             }
@@ -77,7 +77,7 @@ struct TouchFish: Widget {
 }
 
 #Preview(as: .systemSmall) {
-    TouchFish()
+    SalaryTimer()
 } timeline: {
     SimpleEntry(date: .now, emoji: "😀")
     SimpleEntry(date: .now, emoji: "🤩")

@@ -59,6 +59,13 @@ struct ContentView: View {
         isRunning ? .orange : .cyan
     }
 
+    private var elapsedClockText: String {
+        let totalSeconds = Int(elapsed)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
     var body: some View {
         NavigationStack {
             GeometryReader { geo in
@@ -186,7 +193,7 @@ struct ContentView: View {
                     .minimumScaleFactor(0.6)
                     .foregroundStyle(.white)
 
-                Text(elapsed, format: .time(pattern: .minuteSecond))
+                Text(elapsedClockText)
                     .font(.title3.weight(.medium))
                     .monospacedDigit()
                     .foregroundStyle(.white.opacity(0.72))
@@ -415,16 +422,32 @@ private extension View {
     @ViewBuilder
     func controlButtonStyle(prominent: Bool, tint: Color) -> some View {
         if #available(iOS 26.0, *) {
-            self
-                .font(.headline)
-                .padding(.vertical, 14)
-                .buttonStyle(prominent ? .glassProminent : .glass(.regular.tint(tint)))
+            if prominent {
+                self
+                    .font(.headline)
+                    .padding(.vertical, 14)
+                    .buttonStyle(GlassProminentButtonStyle())
+            } else {
+                self
+                    .font(.headline)
+                    .padding(.vertical, 14)
+                    .buttonStyle(GlassButtonStyle())
+                    .tint(tint)
+            }
         } else {
-            self
-                .font(.headline)
-                .padding(.vertical, 14)
-                .buttonStyle(prominent ? .borderedProminent : .bordered)
-                .tint(tint)
+            if prominent {
+                self
+                    .font(.headline)
+                    .padding(.vertical, 14)
+                    .buttonStyle(BorderedProminentButtonStyle())
+                    .tint(tint)
+            } else {
+                self
+                    .font(.headline)
+                    .padding(.vertical, 14)
+                    .buttonStyle(BorderedButtonStyle())
+                    .tint(tint)
+            }
         }
     }
 }

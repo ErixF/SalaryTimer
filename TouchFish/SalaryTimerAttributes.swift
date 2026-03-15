@@ -1,5 +1,5 @@
 //
-//  TouchFishAttributes.swift
+//  SalaryTimerAttributes.swift
 //  SalaryTimer
 //
 //  Created by Eric Feng on 5/24/25.
