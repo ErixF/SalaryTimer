@@ -10,6 +10,18 @@ import UIKit
 import ActivityKit
 
 struct ContentView: View {
+    private enum ScrollTarget: Hashable {
+        case configurationCard
+    }
+
+    private enum InputField: Hashable {
+        case hourlyRate
+        case monthlyIncome
+        case taxRate
+        case hoursPerDay
+        case daysPerMonth
+    }
+
     // MARK: - Inputs
     @State private var incomeType = 0              // 0 = hourly, 1 = monthly
     @State private var hourlyRateText: String = ""
@@ -21,6 +33,9 @@ struct ContentView: View {
     @State private var showConfiguration = true
     @State private var resetTapCount = 0
     @State private var lastResetTapDate: Date? = nil
+    @State private var keyboardHeight: CGFloat = 0
+    @State private var titleIndex = 0
+    @FocusState private var focusedField: InputField?
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.colorScheme) private var colorScheme
@@ -40,6 +55,19 @@ struct ContentView: View {
     private var hoursPerDay: Double { Double(hoursPerDayText) ?? 0 }
     private var daysPerMonth: Double { Double(daysPerMonthText) ?? 0 }
     private let liveActivityRefreshInterval: TimeInterval = 15
+    private let titleOptions = [
+        "Getting Paid to Exist",
+        "Clocking In to Breathe",
+        "Paid to Occupy Space",
+        "Being Alive\nBilled in Seconds",
+        "Money Printer:\nWarm-Up Mode",
+        "Clock In, Mind Out",
+        "Touching Fish Bro",
+        "Initiate Bare Minimum Wealth",
+        "Money O’Clock",
+        "Being Alive, Professionally",
+        "Professional Breathing Session"
+    ]
 
     /// Net earning per second, after tax.
     private var earningPerSecond: Double {
@@ -90,22 +118,23 @@ struct ContentView: View {
             GeometryReader { geo in
                 ZStack {
                     ambientBackground
+                        .ignoresSafeArea()
 
                     if geo.size.height >= geo.size.width {
-                        portraitLayout
+                        portraitLayout(bottomSafeArea: geo.safeAreaInsets.bottom)
                     } else {
                         landscapeLayout(width: geo.size.width)
                     }
                 }
-                .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    UIApplication.shared.sendAction(
-                        #selector(UIResponder.resignFirstResponder),
-                        to: nil,
-                        from: nil,
-                        for: nil
-                    )
+                    dismissKeyboard()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+                    updateKeyboardHeight(with: notification)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { notification in
+                    updateKeyboardHeight(with: notification)
                 }
             }
             .alert("RESET APP", isPresented: $showPopup) {
@@ -147,19 +176,34 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.6), value: isRunning)
     }
 
-    private var portraitLayout: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
-                screenTitle
-                heroSection
-                controlSection
-                configurationSection
+    private func portraitLayout(bottomSafeArea: CGFloat) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    screenTitle
+                    heroSection
+                    controlSection
+                    configurationSection
+
+                    Color.clear
+                        .frame(height: max(0, keyboardHeight + 24))
+                        .id("keyboardSpacer")
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 34)
-            .padding(.bottom, 32)
+            .safeAreaPadding(.top, 8)
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: focusedField) { _, field in
+                guard field != nil else { return }
+                scrollActiveCard(with: proxy)
+            }
+            .onChange(of: keyboardHeight) { _, height in
+                guard height > 0, focusedField != nil else { return }
+                scrollActiveCard(with: proxy)
+            }
         }
-        .safeAreaPadding(.top, 24)
     }
 
     private func landscapeLayout(width: CGFloat) -> some View {
@@ -191,13 +235,20 @@ struct ContentView: View {
     }
 
     private var screenTitle: some View {
-        Text("Getting Paid to Exist")
+        Text(titleOptions[titleIndex])
             .font(.system(size: 28, weight: .bold, design: .rounded))
             .foregroundStyle(.white.opacity(0.96))
             .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, alignment: .center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.72)
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .center)
             .padding(.bottom, 4)
-            .padding(.top, 15)
+            .contentTransition(.opacity)
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    titleIndex = (titleIndex + 1) % titleOptions.count
+                }
+            }
     }
 
     private var heroSection: some View {
@@ -254,6 +305,8 @@ struct ContentView: View {
         HStack(spacing: 12) {
             Button(action: startTimer) {
                 Label(isRunning ? "Running" : "Start", systemImage: isRunning ? "play.fill" : "play.circle.fill")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .padding(.vertical, 5)
                     .frame(maxWidth: .infinity)
             }
@@ -318,29 +371,29 @@ struct ContentView: View {
 
                     settingsRow(title: incomeType == 0 ? "Hourly $" : "Monthly $") {
                         if incomeType == 0 {
-                            amountField("28", text: $hourlyRateText)
+                            amountField("28", text: $hourlyRateText, field: .hourlyRate)
                         } else {
-                            amountField("4000", text: $monthlyIncomeText)
+                            amountField("4000", text: $monthlyIncomeText, field: .monthlyIncome)
                         }
                     }
 
                     dividerLine
 
                     settingsRow(title: "Tax %") {
-                        amountField("11", text: $taxRateText)
+                        amountField("11", text: $taxRateText, field: .taxRate)
                     }
 
                     if incomeType == 1 {
                         dividerLine
 
                         settingsRow(title: "Hours / Day") {
-                            amountField("7", text: $hoursPerDayText)
+                            amountField("7", text: $hoursPerDayText, field: .hoursPerDay)
                         }
 
                         dividerLine
 
                         settingsRow(title: "Days / Month") {
-                            amountField("22", text: $daysPerMonthText)
+                            amountField("22", text: $daysPerMonthText, field: .daysPerMonth)
                         }
                     }
                 }
@@ -350,6 +403,7 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .panelSurface()
+        .id(ScrollTarget.configurationCard)
     }
 
     private var dividerLine: some View {
@@ -371,10 +425,11 @@ struct ContentView: View {
         .padding(.vertical, 14)
     }
 
-    private func amountField(_ placeholder: String, text: Binding<String>) -> some View {
+    private func amountField(_ placeholder: String, text: Binding<String>, field: InputField) -> some View {
         TextField(placeholder, text: text)
             .multilineTextAlignment(.trailing)
             .keyboardType(.decimalPad)
+            .focused($focusedField, equals: field)
             .font(.body.monospacedDigit())
             .frame(minWidth: 72)
             .padding(.horizontal, 12)
@@ -383,6 +438,7 @@ struct ContentView: View {
                 Color.white.opacity(colorScheme == .dark ? 0.08 : 0.42),
                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
+            .id(field)
     }
 
     // MARK: - Timer controls
@@ -433,6 +489,7 @@ struct ContentView: View {
     private func resetApp() {
         stopTimer()
         endAllLiveActivities()
+        dismissKeyboard()
         incomeType = 0
         hourlyRateText = ""
         monthlyIncomeText = ""
@@ -540,6 +597,44 @@ struct ContentView: View {
             liveActivitySessionStartDate = nil
             lastLiveActivityRefreshDate = nil
             lastLiveActivityRate = 0
+        }
+    }
+
+    private func dismissKeyboard() {
+        focusedField = nil
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
+    }
+
+
+    private func scrollActiveCard(with proxy: ScrollViewProxy) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                proxy.scrollTo(ScrollTarget.configurationCard, anchor: .bottom)
+            }
+        }
+    }
+
+    private func updateKeyboardHeight(with notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+
+        let endFrame = (userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect) ?? .zero
+        let duration = (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+
+        let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene
+        let window = windowScene?.windows.first { $0.isKeyWindow }
+        let screenHeight = window?.bounds.height ?? windowScene?.screen.bounds.height ?? 0
+        let bottomInset = window?.safeAreaInsets.bottom ?? 0
+
+        let overlap = max(0, screenHeight - endFrame.minY - bottomInset)
+        let nextKeyboardHeight = notification.name == UIResponder.keyboardWillHideNotification ? 0 : overlap
+
+        withAnimation(.easeOut(duration: duration)) {
+            keyboardHeight = nextKeyboardHeight
         }
     }
 }
