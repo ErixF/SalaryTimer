@@ -26,6 +26,8 @@ struct SalaryTimerLiveActivity: Widget {
                         amountFont: .system(size: 28, weight: .bold, design: .rounded),
                         style: .dynamicIsland
                     )
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 4)
                 }
             } compactLeading: {
                 SalaryTimerCompactView(context: context)
