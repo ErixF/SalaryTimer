@@ -93,6 +93,14 @@ struct ContentView: View {
     private var accentColor: Color {
         isRunning ? .orange : .cyan
     }
+    
+    private var bottomCicle: Color {
+        isRunning ? .red : .orange
+    }
+    
+    private var topCicle: Color {
+        isRunning ? .red : .cyan
+    }
 
     private var heroPrimaryTextColor: Color {
         colorScheme == .dark ? .white : .black
@@ -156,19 +164,19 @@ struct ContentView: View {
             )
 
             Circle()
-                .fill(accentColor.opacity(0.30))
+                .fill(topCicle.opacity(0.50))
                 .frame(width: 320, height: 320)
                 .blur(radius: 70)
                 .offset(x: -120, y: -220)
 
             Circle()
-                .fill(Color.white.opacity(isRunning ? 0.16 : 0.10))
+                .fill(Color.white.opacity(isRunning ? 0.25 : 0.10))
                 .frame(width: 280, height: 280)
                 .blur(radius: 90)
                 .offset(x: 140, y: -120)
 
             Circle()
-                .fill(Color.orange.opacity(isRunning ? 0.24 : 0.12))
+                .fill(bottomCicle.opacity(isRunning ? 0.40 : 0.15))
                 .frame(width: 360, height: 360)
                 .blur(radius: 110)
                 .offset(x: 120, y: 260)
@@ -276,7 +284,7 @@ struct ContentView: View {
 
     private var landscapeAmount: some View {
         Text("$\(totalEarned.formatted(.number.precision(.fractionLength(2))))")
-            .font(.system(size: 108, weight: .bold, design: .rounded))
+            .font(.system(size: 150, weight: .bold, design: .rounded))
             .monospacedDigit()
             .minimumScaleFactor(0.35)
             .lineLimit(1)
@@ -397,6 +405,7 @@ struct ContentView: View {
                         }
                     }
                 }
+                .disabled(isRunning)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
