@@ -15,31 +15,40 @@ struct SessionLogView: View {
     }
 
     @State private var segment: Segment = .all
+    @Environment(SalaryTimerStore.self) private var timerStore
 
     private let currencyCode = "USD"
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("", selection: $segment) {
-                    Text("All Records").tag(Segment.all)
-                    Text("Top 10").tag(Segment.top)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 8)
+            ZStack {
+                AmbientBackground(isRunning: timerStore.isRunning)
+                    .ignoresSafeArea()
 
-                switch segment {
-                case .all:
-                    AllRecordsList(currencyCode: currencyCode)
-                case .top:
-                    TopTenList(currencyCode: currencyCode)
+                VStack(spacing: 0) {
+                    Picker("", selection: $segment) {
+                        Text("All Records").tag(Segment.all)
+                        Text("Top 10").tag(Segment.top)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+
+                    switch segment {
+                    case .all:
+                        AllRecordsList(currencyCode: currencyCode)
+                    case .top:
+                        TopTenList(currencyCode: currencyCode)
+                    }
                 }
             }
             .navigationTitle(segment == .all ? "All Records" : "Top 10")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
         }
+        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -59,6 +68,7 @@ private struct AllRecordsList: View {
                 Section {
                     ForEach(group.sessions) { session in
                         SessionRow(session: session, currencyCode: currencyCode)
+                            .listRowBackground(Color.white.opacity(0.08))
                     }
                     .onDelete { indices in
                         delete(at: indices, in: group)
@@ -66,14 +76,14 @@ private struct AllRecordsList: View {
                 } header: {
                     Text(group.title)
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                         .textCase(nil)
                         .padding(.leading, -8)
                 }
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.visible)
+        .scrollContentBackground(.hidden)
     }
 
     private func delete(at indices: IndexSet, in group: SessionDayGroup) {
@@ -100,11 +110,12 @@ private struct TopTenList: View {
                         RankBadge(rank: index + 1)
                         SessionRow(session: session, currencyCode: currencyCode)
                     }
+                    .listRowBackground(Color.white.opacity(0.08))
                 }
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.visible)
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -230,5 +241,6 @@ enum SessionFormatters {
 
 #Preview {
     SessionLogView()
+        .environment(SalaryTimerStore())
         .modelContainer(for: SalarySession.self, inMemory: true)
 }

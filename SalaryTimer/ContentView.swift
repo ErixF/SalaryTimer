@@ -41,6 +41,7 @@ struct ContentView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
+    @Environment(SalaryTimerStore.self) private var timerStore
 
     // MARK: - Timer
     @State private var elapsed: TimeInterval = 0
@@ -95,14 +96,6 @@ struct ContentView: View {
     private var accentColor: Color {
         isRunning ? .orange : .cyan
     }
-    
-    private var bottomCicle: Color {
-        isRunning ? .red : .orange
-    }
-    
-    private var topCicle: Color {
-        isRunning ? .red : .cyan
-    }
 
     private var heroPrimaryTextColor: Color {
         colorScheme == .dark ? .white : .black
@@ -127,7 +120,7 @@ struct ContentView: View {
         NavigationStack {
             GeometryReader { geo in
                 ZStack {
-                    ambientBackground
+                    AmbientBackground(isRunning: isRunning)
                         .ignoresSafeArea()
 
                     if geo.size.height >= geo.size.width {
@@ -151,39 +144,6 @@ struct ContentView: View {
                 Button("OK", action: resetApp)
             }
         }
-    }
-
-    private var ambientBackground: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.05, green: 0.09, blue: 0.16),
-                    Color(red: 0.11, green: 0.16, blue: 0.24),
-                    Color(red: 0.20, green: 0.15, blue: 0.11)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(topCicle.opacity(0.50))
-                .frame(width: 320, height: 320)
-                .blur(radius: 70)
-                .offset(x: -120, y: -220)
-
-            Circle()
-                .fill(Color.white.opacity(isRunning ? 0.25 : 0.10))
-                .frame(width: 280, height: 280)
-                .blur(radius: 90)
-                .offset(x: 140, y: -120)
-
-            Circle()
-                .fill(bottomCicle.opacity(isRunning ? 0.40 : 0.15))
-                .frame(width: 360, height: 360)
-                .blur(radius: 110)
-                .offset(x: 120, y: 260)
-        }
-        .animation(.easeInOut(duration: 0.6), value: isRunning)
     }
 
     private func portraitLayout(bottomSafeArea: CGFloat) -> some View {
@@ -463,6 +423,7 @@ struct ContentView: View {
             refreshLiveActivityIfNeeded()
         }
         startLiveActivity(at: now)
+        timerStore.isRunning = true
     }
 
     private func stopTimer() {
@@ -472,6 +433,7 @@ struct ContentView: View {
         timer = nil
         lastStart = nil
         endLiveActivity(at: now)
+        timerStore.isRunning = false
     }
 
     private func resetTimer() {
@@ -665,6 +627,7 @@ struct ContentView: View {
 
 #Preview {
     RootTabView()
+        .environment(SalaryTimerStore())
         .modelContainer(for: SalarySession.self, inMemory: true)
 }
 
