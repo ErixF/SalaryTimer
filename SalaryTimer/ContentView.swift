@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import ActivityKit
+import SwiftData
 
 struct ContentView: View {
     private enum ScrollTarget: Hashable {
@@ -39,6 +40,7 @@ struct ContentView: View {
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
 
     // MARK: - Timer
     @State private var elapsed: TimeInterval = 0
@@ -474,7 +476,19 @@ struct ContentView: View {
 
     private func resetTimer() {
         stopTimer()
+        persistSessionIfNeeded()
         elapsed = 0
+    }
+
+    private func persistSessionIfNeeded() {
+        guard elapsed > 0 else { return }
+        let session = SalarySession(
+            endDate: Date(),
+            totalEarned: totalEarned,
+            duration: elapsed,
+            unitPrice: earningPerSecond
+        )
+        modelContext.insert(session)
     }
 
     private func registerHiddenResetTap() {
@@ -497,6 +511,7 @@ struct ContentView: View {
     /// Reset all inputs and timer to initial state.
     private func resetApp() {
         stopTimer()
+        persistSessionIfNeeded()
         endAllLiveActivities()
         dismissKeyboard()
         incomeType = 0
@@ -649,7 +664,8 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    RootTabView()
+        .modelContainer(for: SalarySession.self, inMemory: true)
 }
 
 private extension View {
