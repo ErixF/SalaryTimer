@@ -457,7 +457,7 @@ struct ContentView: View {
         guard timer == nil else { return }
         let now = Date()
         lastStart = now
-        liveActivitySessionStartDate = now
+        liveActivitySessionStartDate = now.addingTimeInterval(-elapsed)
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             commitElapsed()
             refreshLiveActivityIfNeeded()
