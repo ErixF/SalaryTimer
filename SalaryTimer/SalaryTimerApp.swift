@@ -44,6 +44,11 @@ struct RootTabView: View {
                 SessionLogView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
+
+            Tab("Profile", systemImage: "person.crop.circle") {
+                ProfileView()
+                    .toolbar(tabBarVisibility, for: .tabBar)
+            }
         }
     }
 }
