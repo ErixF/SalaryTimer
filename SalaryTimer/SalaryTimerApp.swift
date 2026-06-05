@@ -29,17 +29,22 @@ final class SalaryTimerStore {
 struct RootTabView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
+    private var tabBarVisibility: Visibility {
+        verticalSizeClass == .compact ? .hidden : .automatic
+    }
+
     var body: some View {
         TabView {
             Tab("Meter", systemImage: "timer") {
                 ContentView()
+                    .toolbar(tabBarVisibility, for: .tabBar)
             }
 
             Tab("Records", systemImage: "trophy") {
                 SessionLogView()
+                    .toolbar(tabBarVisibility, for: .tabBar)
             }
         }
-        .toolbar(verticalSizeClass == .compact ? .hidden : .automatic, for: .tabBar)
     }
 }
 
