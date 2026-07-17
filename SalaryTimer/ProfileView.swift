@@ -20,38 +20,46 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if timerStore.isRunning {
-                    Section {
-                        Label("Settings are locked while the timer is running.", systemImage: "lock.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+            ZStack {
+                ProfileBackground()
+                    .ignoresSafeArea()
+                
+                Form {
+                    if timerStore.isRunning {
+                        Section {
+                            Label("Settings are locked while the timer is running.", systemImage: "lock.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Section("Income") {
+                        Picker("Income Type", selection: $incomeType) {
+                            Text("Hourly").tag(0)
+                            Text("Monthly").tag(1)
+                        }
+                        .pickerStyle(.segmented)
+
+                        if incomeType == 0 {
+                            amountRow("Hourly Rate ($)", placeholder: "28", text: $hourlyRateText)
+                        } else {
+                            amountRow("Monthly Income ($)", placeholder: "4000", text: $monthlyIncomeText)
+                            amountRow("Hours / Day", placeholder: "7", text: $hoursPerDayText)
+                            amountRow("Days / Month", placeholder: "22", text: $daysPerMonthText)
+                        }
+                    }
+
+                    Section("Tax") {
+                        amountRow("Tax %", placeholder: "11", text: $taxRateText)
                     }
                 }
-
-                Section("Income") {
-                    Picker("Income Type", selection: $incomeType) {
-                        Text("Hourly").tag(0)
-                        Text("Monthly").tag(1)
-                    }
-                    .pickerStyle(.segmented)
-
-                    if incomeType == 0 {
-                        amountRow("Hourly Rate ($)", placeholder: "28", text: $hourlyRateText)
-                    } else {
-                        amountRow("Monthly Income ($)", placeholder: "4000", text: $monthlyIncomeText)
-                        amountRow("Hours / Day", placeholder: "7", text: $hoursPerDayText)
-                        amountRow("Days / Month", placeholder: "22", text: $daysPerMonthText)
-                    }
-                }
-
-                Section("Tax") {
-                    amountRow("Tax %", placeholder: "11", text: $taxRateText)
-                }
+                .scrollContentBackground(.hidden)
             }
             .disabled(timerStore.isRunning)
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -66,6 +74,7 @@ struct ProfileView: View {
                 }
             }
         }
+        .environment(\.colorScheme, .dark)
     }
 
     private func amountRow(_ title: String, placeholder: String, text: Binding<String>) -> some View {
