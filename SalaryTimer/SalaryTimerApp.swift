@@ -24,148 +24,177 @@ struct SalaryTimerApp: App {
 @Observable
 final class SalaryTimerStore {
     var isRunning: Bool = false
+    var selectedTab: AppTab = .meter
+}
+
+enum AppTab: Hashable {
+    case meter
+    case records
+    case profile
 }
 
 struct RootTabView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(SalaryTimerStore.self) private var timerStore
+    @State private var selection: AppTab = .meter
 
     private var tabBarVisibility: Visibility {
         verticalSizeClass == .compact ? .hidden : .automatic
     }
 
     var body: some View {
-        TabView {
-            Tab("Meter", systemImage: "timer") {
+        TabView(selection: $selection) {
+            Tab("Meter", systemImage: "timer", value: .meter) {
                 ContentView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
 
-            Tab("Records", systemImage: "trophy") {
+            Tab("Records", systemImage: "trophy", value: .records) {
                 SessionLogView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
 
-            Tab("Profile", systemImage: "person.crop.circle") {
+            Tab("Profile", systemImage: "person.crop.circle", value: .profile) {
                 ProfileView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
         }
-    }
-}
-
-// MARK: - Meter Tab Background
-
-struct AmbientBackground: View {
-    let isRunning: Bool
-
-    private var topCircleColor: Color { isRunning ? .red : .cyan }
-    private var bottomCircleColor: Color { isRunning ? .red : .orange }
-
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.05, green: 0.09, blue: 0.16),
-                    Color(red: 0.11, green: 0.16, blue: 0.24),
-                    Color(red: 0.20, green: 0.15, blue: 0.11)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(topCircleColor.opacity(0.50))
-                .frame(width: 320, height: 320)
-                .blur(radius: 70)
-                .offset(x: -120, y: -220)
-
-            Circle()
-                .fill(Color.white.opacity(isRunning ? 0.25 : 0.10))
-                .frame(width: 280, height: 280)
-                .blur(radius: 90)
-                .offset(x: 140, y: -120)
-
-            Circle()
-                .fill(bottomCircleColor.opacity(isRunning ? 0.40 : 0.15))
-                .frame(width: 360, height: 360)
-                .blur(radius: 110)
-                .offset(x: 120, y: 260)
+        .onChange(of: selection) { _, newValue in
+            timerStore.selectedTab = newValue
         }
-        .animation(.easeInOut(duration: 0.6), value: isRunning)
+        .onAppear {
+            timerStore.selectedTab = selection
+        }
     }
 }
 
-// MARK: - Records Tab Background
+// MARK: - Unified Dynamic Background
 
-struct RecordsBackground: View {
+struct UnifiedBackground: View {
+    let selectedTab: AppTab
     let isRunning: Bool
+    
+    private struct BackgroundColors {
+        let gradient1: Color
+        let gradient2: Color
+        let gradient3: Color
+        let circle1Color: Color
+        let circle1Opacity: Double
+        let circle2Color: Color
+        let circle2Opacity: Double
+        let circle3Color: Color
+        let circle3Opacity: Double
+    }
+    
+    private var colors: BackgroundColors {
+        switch selectedTab {
+        case .meter:
+            let topColor = isRunning ? Color.red : Color.cyan
+            let bottomColor = isRunning ? Color.red : Color.orange
+            return BackgroundColors(
+                gradient1: Color(red: 0.05, green: 0.09, blue: 0.16),
+                gradient2: Color(red: 0.11, green: 0.16, blue: 0.24),
+                gradient3: Color(red: 0.20, green: 0.15, blue: 0.11),
+                circle1Color: topColor,
+                circle1Opacity: 0.50,
+                circle2Color: .white,
+                circle2Opacity: isRunning ? 0.25 : 0.10,
+                circle3Color: bottomColor,
+                circle3Opacity: isRunning ? 0.40 : 0.15
+            )
+            
+        case .records:
+            return BackgroundColors(
+                gradient1: Color(red: 0.10, green: 0.05, blue: 0.15),
+                gradient2: Color(red: 0.15, green: 0.10, blue: 0.20),
+                gradient3: Color(red: 0.12, green: 0.08, blue: 0.18),
+                circle1Color: .purple,
+                circle1Opacity: isRunning ? 0.35 : 0.25,
+                circle2Color: .yellow,
+                circle2Opacity: isRunning ? 0.20 : 0.12,
+                circle3Color: .indigo,
+                circle3Opacity: isRunning ? 0.30 : 0.20
+            )
+            
+        case .profile:
+            return BackgroundColors(
+                gradient1: Color(red: 0.08, green: 0.12, blue: 0.10),
+                gradient2: Color(red: 0.12, green: 0.18, blue: 0.15),
+                gradient3: Color(red: 0.10, green: 0.16, blue: 0.14),
+                circle1Color: .green,
+                circle1Opacity: 0.22,
+                circle2Color: .teal,
+                circle2Opacity: 0.18,
+                circle3Color: .mint,
+                circle3Opacity: 0.15
+            )
+        }
+    }
     
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color(red: 0.10, green: 0.05, blue: 0.15),
-                    Color(red: 0.15, green: 0.10, blue: 0.20),
-                    Color(red: 0.12, green: 0.08, blue: 0.18)
-                ],
+                colors: [colors.gradient1, colors.gradient2, colors.gradient3],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             
             Circle()
-                .fill(Color.purple.opacity(isRunning ? 0.35 : 0.25))
-                .frame(width: 280, height: 280)
-                .blur(radius: 80)
-                .offset(x: -100, y: -200)
+                .fill(colors.circle1Color.opacity(colors.circle1Opacity))
+                .frame(width: selectedTab == .profile ? 300 : selectedTab == .records ? 280 : 320)
+                .blur(radius: selectedTab == .profile ? 85 : selectedTab == .records ? 80 : 70)
+                .offset(
+                    x: selectedTab == .profile ? 110 : selectedTab == .records ? -100 : -120,
+                    y: selectedTab == .profile ? -180 : selectedTab == .records ? -200 : -220
+                )
             
             Circle()
-                .fill(Color.yellow.opacity(isRunning ? 0.20 : 0.12))
-                .frame(width: 240, height: 240)
-                .blur(radius: 100)
-                .offset(x: 130, y: -80)
+                .fill(colors.circle2Color.opacity(colors.circle2Opacity))
+                .frame(width: selectedTab == .profile ? 260 : selectedTab == .records ? 240 : 280)
+                .blur(radius: selectedTab == .profile ? 95 : selectedTab == .records ? 100 : 90)
+                .offset(
+                    x: selectedTab == .profile ? -120 : selectedTab == .records ? 130 : 140,
+                    y: selectedTab == .profile ? -100 : selectedTab == .records ? -80 : -120
+                )
             
             Circle()
-                .fill(Color.indigo.opacity(isRunning ? 0.30 : 0.20))
-                .frame(width: 320, height: 320)
-                .blur(radius: 90)
-                .offset(x: -140, y: 240)
+                .fill(colors.circle3Color.opacity(colors.circle3Opacity))
+                .frame(width: selectedTab == .profile ? 340 : selectedTab == .records ? 320 : 360)
+                .blur(radius: selectedTab == .profile ? 100 : selectedTab == .records ? 90 : 110)
+                .offset(
+                    x: selectedTab == .profile ? 100 : selectedTab == .records ? -140 : 120,
+                    y: selectedTab == .profile ? 250 : selectedTab == .records ? 240 : 260
+                )
         }
+        .animation(.easeInOut(duration: 0.8), value: selectedTab)
         .animation(.easeInOut(duration: 0.6), value: isRunning)
     }
 }
 
-// MARK: - Profile Tab Background
+// MARK: - Legacy Backgrounds (for backwards compatibility)
+
+struct AmbientBackground: View {
+    let isRunning: Bool
+    @Environment(SalaryTimerStore.self) private var timerStore
+
+    var body: some View {
+        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: isRunning)
+    }
+}
+
+struct RecordsBackground: View {
+    let isRunning: Bool
+    @Environment(SalaryTimerStore.self) private var timerStore
+    
+    var body: some View {
+        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: isRunning)
+    }
+}
 
 struct ProfileBackground: View {
+    @Environment(SalaryTimerStore.self) private var timerStore
+    
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.12, blue: 0.10),
-                    Color(red: 0.12, green: 0.18, blue: 0.15),
-                    Color(red: 0.10, green: 0.16, blue: 0.14)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-            Circle()
-                .fill(Color.green.opacity(0.22))
-                .frame(width: 300, height: 300)
-                .blur(radius: 85)
-                .offset(x: 110, y: -180)
-            
-            Circle()
-                .fill(Color.teal.opacity(0.18))
-                .frame(width: 260, height: 260)
-                .blur(radius: 95)
-                .offset(x: -120, y: -100)
-            
-            Circle()
-                .fill(Color.mint.opacity(0.15))
-                .frame(width: 340, height: 340)
-                .blur(radius: 100)
-                .offset(x: 100, y: 250)
-        }
+        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: false)
     }
 }

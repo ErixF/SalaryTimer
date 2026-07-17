@@ -24,7 +24,7 @@ struct ProfileView: View {
                 ProfileBackground()
                     .ignoresSafeArea()
                 
-                Form {
+                List {
                     if timerStore.isRunning {
                         Section {
                             Label("Settings are locked while the timer is running.", systemImage: "lock.fill")
@@ -33,7 +33,7 @@ struct ProfileView: View {
                         }
                     }
 
-                    Section("Income") {
+                    Section {
                         Picker("Income Type", selection: $incomeType) {
                             Text("Hourly").tag(0)
                             Text("Monthly").tag(1)
@@ -47,19 +47,22 @@ struct ProfileView: View {
                             amountRow("Hours / Day", placeholder: "7", text: $hoursPerDayText)
                             amountRow("Days / Month", placeholder: "22", text: $daysPerMonthText)
                         }
+                    } header: {
+                        Text("Income")
                     }
 
-                    Section("Tax") {
+                    Section {
                         amountRow("Tax %", placeholder: "11", text: $taxRateText)
+                    } header: {
+                        Text("Tax")
                     }
                 }
+                .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
             }
             .disabled(timerStore.isRunning)
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -74,7 +77,6 @@ struct ProfileView: View {
                 }
             }
         }
-        .environment(\.colorScheme, .dark)
     }
 
     private func amountRow(_ title: String, placeholder: String, text: Binding<String>) -> some View {

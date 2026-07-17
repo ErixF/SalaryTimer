@@ -45,10 +45,7 @@ struct SessionLogView: View {
             }
             .navigationTitle(segment == .all ? "All Records" : "Top 10")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
         }
-        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -68,7 +65,7 @@ private struct AllRecordsList: View {
                 Section {
                     ForEach(group.sessions) { session in
                         SessionRow(session: session, currencyCode: currencyCode)
-                            .listRowBackground(Color.white.opacity(0.08))
+                            .listRowBackground(listRowBackground)
                     }
                     .onDelete { indices in
                         delete(at: indices, in: group)
@@ -76,7 +73,6 @@ private struct AllRecordsList: View {
                 } header: {
                     Text(group.title)
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(.white)
                         .textCase(nil)
                         .padding(.leading, -8)
                 }
@@ -89,6 +85,21 @@ private struct AllRecordsList: View {
     private func delete(at indices: IndexSet, in group: SessionDayGroup) {
         for index in indices {
             modelContext.delete(group.sessions[index])
+        }
+    }
+    
+    @ViewBuilder
+    private var listRowBackground: some View {
+        if #available(iOS 26.0, *) {
+            Color.clear
+                .glassEffect(.regular.tint(.white.opacity(0.08)).interactive(), in: .rect(cornerRadius: 10))
+        } else {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+                }
         }
     }
 }
@@ -110,12 +121,27 @@ private struct TopTenList: View {
                         RankBadge(rank: index + 1)
                         SessionRow(session: session, currencyCode: currencyCode)
                     }
-                    .listRowBackground(Color.white.opacity(0.08))
+                    .listRowBackground(listRowBackground)
                 }
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+    }
+    
+    @ViewBuilder
+    private var listRowBackground: some View {
+        if #available(iOS 26.0, *) {
+            Color.clear
+                .glassEffect(.regular.tint(.white.opacity(0.08)).interactive(), in: .rect(cornerRadius: 10))
+        } else {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+                }
+        }
     }
 }
 
