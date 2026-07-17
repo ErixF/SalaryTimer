@@ -31,6 +31,7 @@ struct SessionLogView: View {
                         Text("Top 10").tag(Segment.top)
                     }
                     .pickerStyle(.segmented)
+                    .colorScheme(.dark)
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
                     .padding(.bottom, 8)
@@ -46,6 +47,7 @@ struct SessionLogView: View {
             .navigationTitle(segment == .all ? "All Records" : "Top 10")
             .navigationBarTitleDisplayMode(.large)
         }
+        .colorScheme(.dark)
     }
 }
 
