@@ -25,6 +25,7 @@ struct SalaryTimerApp: App {
 final class SalaryTimerStore {
     var isRunning: Bool = false
     var selectedTab: AppTab = .meter
+    var isPaused: Bool = false // Timer is stopped but has elapsed time
 }
 
 enum AppTab: Hashable {
@@ -73,6 +74,7 @@ struct RootTabView: View {
 struct UnifiedBackground: View {
     let selectedTab: AppTab
     let isRunning: Bool
+    let isPaused: Bool
     
     private struct BackgroundColors {
         let gradient1: Color
@@ -89,18 +91,43 @@ struct UnifiedBackground: View {
     private var colors: BackgroundColors {
         switch selectedTab {
         case .meter:
-            let topColor = isRunning ? Color.red : Color.cyan
-            let bottomColor = isRunning ? Color.red : Color.orange
+            // Three states: running (red), paused (amber/yellow), initial (cyan/orange)
+            let topColor: Color
+            let bottomColor: Color
+            let circle1Opacity: Double
+            let circle2Opacity: Double
+            let circle3Opacity: Double
+            
+            if isRunning {
+                topColor = .red
+                bottomColor = .red
+                circle1Opacity = 0.50
+                circle2Opacity = 0.25
+                circle3Opacity = 0.40
+            } else if isPaused {
+                topColor = .yellow
+                bottomColor = .orange
+                circle1Opacity = 0.35
+                circle2Opacity = 0.15
+                circle3Opacity = 0.25
+            } else {
+                topColor = .cyan
+                bottomColor = .orange
+                circle1Opacity = 0.50
+                circle2Opacity = 0.10
+                circle3Opacity = 0.15
+            }
+            
             return BackgroundColors(
                 gradient1: Color(red: 0.05, green: 0.09, blue: 0.16),
                 gradient2: Color(red: 0.11, green: 0.16, blue: 0.24),
                 gradient3: Color(red: 0.20, green: 0.15, blue: 0.11),
                 circle1Color: topColor,
-                circle1Opacity: 0.50,
+                circle1Opacity: circle1Opacity,
                 circle2Color: .white,
-                circle2Opacity: isRunning ? 0.25 : 0.10,
+                circle2Opacity: circle2Opacity,
                 circle3Color: bottomColor,
-                circle3Opacity: isRunning ? 0.40 : 0.15
+                circle3Opacity: circle3Opacity
             )
             
         case .records:
@@ -168,6 +195,7 @@ struct UnifiedBackground: View {
         }
         .animation(.smooth(duration: 3, extraBounce: 0), value: selectedTab)
         .animation(.smooth(duration: 0.8, extraBounce: 0), value: isRunning)
+        .animation(.smooth(duration: 0.8, extraBounce: 0), value: isPaused)
     }
 }
 
@@ -178,7 +206,7 @@ struct AmbientBackground: View {
     @Environment(SalaryTimerStore.self) private var timerStore
 
     var body: some View {
-        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: isRunning)
+        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: isRunning, isPaused: timerStore.isPaused)
     }
 }
 
@@ -187,7 +215,7 @@ struct RecordsBackground: View {
     @Environment(SalaryTimerStore.self) private var timerStore
     
     var body: some View {
-        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: isRunning)
+        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: isRunning, isPaused: timerStore.isPaused)
     }
 }
 
@@ -195,13 +223,38 @@ struct ProfileBackground: View {
     @Environment(SalaryTimerStore.self) private var timerStore
     
     var body: some View {
-        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: false)
+        UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: false, isPaused: false)
     }
 }
 
 // MARK: - Previews
 
-#Preview {
+#Preview("Meter Tab - Initial") {
+    UnifiedBackground(selectedTab: .meter, isRunning: false, isPaused: false)
+        .ignoresSafeArea()
+}
+
+#Preview("Meter Tab - Paused") {
+    UnifiedBackground(selectedTab: .meter, isRunning: false, isPaused: true)
+        .ignoresSafeArea()
+}
+
+#Preview("Meter Tab - Running") {
+    UnifiedBackground(selectedTab: .meter, isRunning: true, isPaused: false)
+        .ignoresSafeArea()
+}
+
+#Preview("Records Tab") {
+    UnifiedBackground(selectedTab: .records, isRunning: false, isPaused: false)
+        .ignoresSafeArea()
+}
+
+#Preview("Profile Tab") {
+    UnifiedBackground(selectedTab: .profile, isRunning: false, isPaused: false)
+        .ignoresSafeArea()
+}
+
+#Preview("Root Tab View") {
     RootTabView()
         .environment(SalaryTimerStore())
         .modelContainer(for: SalarySession.self, inMemory: true)

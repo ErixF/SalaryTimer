@@ -243,7 +243,7 @@ struct ContentView: View {
             .disabled(isRunning)
 
             Button(action: stopTimer) {
-                Label("Stop", systemImage: "pause.fill")
+                Label("Pause", systemImage: "pause.fill")
                     .padding(.vertical, 5)
                     .frame(maxWidth: .infinity)
             }
@@ -276,6 +276,7 @@ struct ContentView: View {
         }
         startLiveActivity(at: now)
         timerStore.isRunning = true
+        timerStore.isPaused = false
     }
 
     private func stopTimer() {
@@ -286,12 +287,14 @@ struct ContentView: View {
         lastStart = nil
         endLiveActivity(at: now)
         timerStore.isRunning = false
+        timerStore.isPaused = elapsed > 0 // Set paused if there's accumulated time
     }
 
     private func resetTimer() {
         stopTimer()
         persistSessionIfNeeded()
         elapsed = 0
+        timerStore.isPaused = false // Clear paused state when resetting
     }
 
     private func persistSessionIfNeeded() {
@@ -438,7 +441,7 @@ struct ContentView: View {
     }
 }
 
-#Preview {
+#Preview("Root Tab View") {
     RootTabView()
         .environment(SalaryTimerStore())
         .modelContainer(for: SalarySession.self, inMemory: true)
