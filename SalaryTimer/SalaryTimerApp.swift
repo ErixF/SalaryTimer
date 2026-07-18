@@ -166,8 +166,8 @@ struct UnifiedBackground: View {
                     y: selectedTab == .profile ? 250 : selectedTab == .records ? 240 : 260
                 )
         }
-        .animation(.easeInOut(duration: 0.8), value: selectedTab)
-        .animation(.easeInOut(duration: 0.6), value: isRunning)
+        .animation(.smooth(duration: 3, extraBounce: 0), value: selectedTab)
+        .animation(.smooth(duration: 0.8, extraBounce: 0), value: isRunning)
     }
 }
 
@@ -197,4 +197,12 @@ struct ProfileBackground: View {
     var body: some View {
         UnifiedBackground(selectedTab: timerStore.selectedTab, isRunning: false)
     }
+}
+
+// MARK: - Previews
+
+#Preview {
+    RootTabView()
+        .environment(SalaryTimerStore())
+        .modelContainer(for: SalarySession.self, inMemory: true)
 }
