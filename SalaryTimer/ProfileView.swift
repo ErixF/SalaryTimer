@@ -88,12 +88,6 @@ struct ProfileView: View {
                 }
             }
             }
-            .overlay(alignment: .top) {
-                if showsSaved {
-                    ToastView(message: "Saved")
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
             .background {
                 ScreenBackground()
                     .ignoresSafeArea()
@@ -115,6 +109,14 @@ struct ProfileView: View {
             }
             .onChange(of: editKey) {
                 flashSaved()
+            }
+        }
+        // Outside the NavigationStack so it sits just below the Dynamic Island,
+        // matching the Meter's "Saved to Records" toast, not below the large title.
+        .overlay(alignment: .top) {
+            if showsSaved {
+                ToastView(message: "Saved")
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
     }
