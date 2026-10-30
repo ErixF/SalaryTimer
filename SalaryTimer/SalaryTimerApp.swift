@@ -48,42 +48,85 @@ struct RootTabView: View {
     }
 }
 
+/// Meter backdrop. Idle = blue, Running = green, Paused = dimmer green.
+/// Each state is its own layer so changes crossfade smoothly.
 struct AmbientBackground: View {
-    let isRunning: Bool
+    let state: MeterState
 
-    private var topCircleColor: Color { isRunning ? .red : .cyan }
-    private var bottomCircleColor: Color { isRunning ? .red : .orange }
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.05, green: 0.09, blue: 0.16),
-                    Color(red: 0.11, green: 0.16, blue: 0.24),
-                    Color(red: 0.20, green: 0.15, blue: 0.11)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(topCircleColor.opacity(0.50))
-                .frame(width: 320, height: 320)
-                .blur(radius: 70)
-                .offset(x: -120, y: -220)
-
-            Circle()
-                .fill(Color.white.opacity(isRunning ? 0.25 : 0.10))
-                .frame(width: 280, height: 280)
-                .blur(radius: 90)
-                .offset(x: 140, y: -120)
-
-            Circle()
-                .fill(bottomCircleColor.opacity(isRunning ? 0.40 : 0.15))
-                .frame(width: 360, height: 360)
-                .blur(radius: 110)
-                .offset(x: 120, y: 260)
+            layer(for: .idle).opacity(state == .idle ? 1 : 0)
+            layer(for: .running).opacity(state == .running ? 1 : 0)
+            layer(for: .paused).opacity(state == .paused ? 1 : 0)
         }
-        .animation(.easeInOut(duration: 0.6), value: isRunning)
+        .animation(.easeInOut(duration: 0.6), value: state)
+    }
+
+    private func layer(for state: MeterState) -> some View {
+        let palette = Palette(state: state, isDark: colorScheme == .dark)
+        return ZStack {
+            LinearGradient(colors: palette.base, startPoint: .top, endPoint: .bottom)
+            RadialGradient(
+                colors: [palette.topGlow, palette.topGlow.opacity(0)],
+                center: UnitPoint(x: 0.15, y: 0),
+                startRadius: 0,
+                endRadius: 520
+            )
+            if let bottomGlow = palette.bottomGlow {
+                RadialGradient(
+                    colors: [bottomGlow, bottomGlow.opacity(0)],
+                    center: UnitPoint(x: 0.9, y: 1.05),
+                    startRadius: 0,
+                    endRadius: 460
+                )
+            }
+        }
+    }
+
+    private struct Palette {
+        let base: [Color]
+        let topGlow: Color
+        let bottomGlow: Color?
+
+        init(state: MeterState, isDark: Bool) {
+            switch (state, isDark) {
+            case (.idle, true):
+                base = [Color(hex: 0x0A2036), Color(hex: 0x081426), Color(hex: 0x0A101D)]
+                topGlow = Color(red: 38 / 255, green: 132 / 255, blue: 199 / 255).opacity(0.85)
+                bottomGlow = Color(red: 214 / 255, green: 120 / 255, blue: 40 / 255).opacity(0.28)
+            case (.running, true):
+                base = [Color(hex: 0x07231A), Color(hex: 0x071A14), Color(hex: 0x081410)]
+                topGlow = Color(red: 24 / 255, green: 160 / 255, blue: 88 / 255).opacity(0.8)
+                bottomGlow = Color(red: 16 / 255, green: 110 / 255, blue: 60 / 255).opacity(0.35)
+            case (.paused, true):
+                base = [Color(hex: 0x0A1F18), Color(hex: 0x0A1712), Color(hex: 0x0A1210)]
+                topGlow = Color(red: 24 / 255, green: 140 / 255, blue: 80 / 255).opacity(0.45)
+                bottomGlow = nil
+            case (.idle, false):
+                base = [Color(hex: 0xDCEBFA), Color(hex: 0xEDF3FA), Color(hex: 0xF5F7FA)]
+                topGlow = Color(red: 38 / 255, green: 132 / 255, blue: 199 / 255).opacity(0.35)
+                bottomGlow = Color(red: 214 / 255, green: 120 / 255, blue: 40 / 255).opacity(0.14)
+            case (.running, false):
+                base = [Color(hex: 0xDDF3E5), Color(hex: 0xEDF7F0), Color(hex: 0xF4F8F5)]
+                topGlow = Color(red: 24 / 255, green: 160 / 255, blue: 88 / 255).opacity(0.35)
+                bottomGlow = Color(red: 16 / 255, green: 110 / 255, blue: 60 / 255).opacity(0.14)
+            case (.paused, false):
+                base = [Color(hex: 0xE6EFE9), Color(hex: 0xF0F4F1), Color(hex: 0xF5F7F5)]
+                topGlow = Color(red: 24 / 255, green: 140 / 255, blue: 80 / 255).opacity(0.2)
+                bottomGlow = nil
+            }
+        }
+    }
+}
+
+extension Color {
+    init(hex: UInt32) {
+        self.init(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255
+        )
     }
 }

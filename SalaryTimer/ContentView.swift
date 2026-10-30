@@ -17,18 +17,26 @@ struct ContentView: View {
     @AppStorage(ProfileKeys.hoursPerDay) private var hoursPerDayText: String = ""
     @AppStorage(ProfileKeys.daysPerMonth) private var daysPerMonthText: String = ""
 
+    /// Set after the first successful Archive & Reset; hides the first-use hint for good.
+    @AppStorage("meter.hasArchived") private var hasArchived = false
+
     // MARK: - Local UI state
     @State private var showPopup = false
     @State private var resetTapCount = 0
     @State private var lastResetTapDate: Date? = nil
     @State private var titleIndex = 0
+    @State private var toastMessage: String? = nil
+    @State private var toastTask: Task<Void, Never>? = nil
 
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(SalaryTimerStore.self) private var timerStore
+    @Query(sort: \SalarySession.endDate, order: .reverse) private var sessions: [SalarySession]
 
     /// Size of the invisible top-right area that triggers the hidden reset.
     private let hiddenResetAreaSize: CGFloat = 64
+    /// Fixed slot above the buttons so the hint never moves them.
+    private let hintSlotHeight: CGFloat = 34
+    private let toastDuration: Duration = .milliseconds(2600)
     private let titleOptions = [
         "Getting Paid to Exist",
         "Clocking In to Breathe",
@@ -60,58 +68,27 @@ struct ContentView: View {
         timerStore.isRunning ? timerStore.segmentNetPerSecond : rates.netPerSecond
     }
 
-    private var isRunning: Bool {
-        timerStore.isRunning
-    }
-
-    private var accentColor: Color {
-        isRunning ? .orange : .cyan
-    }
-
-    private var heroPrimaryTextColor: Color {
-        colorScheme == .dark ? .white : .black
-    }
-
-    private var heroSecondaryTextColor: Color {
-        colorScheme == .dark ? .white.opacity(0.78) : .black.opacity(0.70)
-    }
-
-    private var heroChipTextColor: Color {
-        colorScheme == .dark ? .white.opacity(0.84) : .black.opacity(0.78)
-    }
-
-    /// `MM:SS`, or `H:MM:SS` once past an hour.
-    private func elapsedClockText(_ elapsed: TimeInterval) -> String {
-        let totalSeconds = max(0, Int(elapsed))
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        }
-        return String(format: "%02d:%02d", minutes, seconds)
-    }
-
-    private func amountText(_ amount: Double) -> String {
-        "$\(amount.formatted(.number.precision(.fractionLength(2))))"
-    }
+    private var state: MeterState { timerStore.state }
 
     var body: some View {
         NavigationStack {
             GeometryReader { geo in
                 ZStack {
-                    AmbientBackground(isRunning: isRunning)
+                    AmbientBackground(state: state)
                         .ignoresSafeArea()
 
                     // Values are derived from timestamps, so a 1s timeline is all the ticking needed.
                     TimelineView(.periodic(from: .now, by: 1)) { timeline in
                         if geo.size.height >= geo.size.width {
-                            portraitLayout(now: timeline.date)
+                            portraitLayout(now: timeline.date, height: geo.size.height)
                         } else {
                             landscapeLayout(width: geo.size.width, now: timeline.date)
                         }
                     }
                 }
+            }
+            .overlay(alignment: .top) {
+                toast
             }
             .overlay(alignment: .topTrailing) {
                 hiddenResetArea
@@ -122,19 +99,244 @@ struct ContentView: View {
         }
     }
 
-    private func portraitLayout(now: Date) -> some View {
+    // MARK: - Portrait
+
+    private func portraitLayout(now: Date, height: CGFloat) -> some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
-                screenTitle
+            VStack(spacing: 0) {
+                VStack(spacing: 12) {
+                    StateChip(state: state)
+                    screenTitle
+                }
+
                 heroSection(now: now)
+                    .padding(.top, 22)
+
+                detailCard(now: now)
+                    .padding(.top, 18)
+
+                statsRow
+                    .padding(.top, 18)
+
+                Spacer(minLength: 18)
+
                 controlSection
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
-            .padding(.bottom, 32)
+            .padding(.bottom, 16)
+            .frame(minHeight: height)
         }
-        .safeAreaPadding(.top, 8)
+        .scrollBounceBehavior(.basedOnSize)
     }
+
+    private var screenTitle: some View {
+        Text(titleOptions[titleIndex])
+            .font(.system(size: 22, weight: .bold, design: .rounded))
+            .foregroundStyle(.primary)
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.72)
+            // Reserve two lines so cycling between 1- and 2-line titles doesn't shift the layout.
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .center)
+            .contentShape(Rectangle())
+            .contentTransition(.opacity)
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    titleIndex = (titleIndex + 1) % titleOptions.count
+                }
+            }
+    }
+
+    private func heroSection(now: Date) -> some View {
+        let amount = timerStore.netEarned(at: now)
+        return VStack(spacing: 6) {
+            Text(elapsedClockText(timerStore.elapsed(at: now)))
+                .font(.system(size: 17, weight: .semibold))
+                .tracking(1.2)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+
+            Text(amountText(amount))
+                .font(.system(size: 64, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .foregroundStyle(.primary)
+                .contentTransition(.numericText(value: amount))
+                .animation(.snappy, value: amount)
+
+            Text("≈ \(perSecondText(earningPerSecond)) / sec")
+                .font(.system(size: 15, weight: .semibold))
+                .monospacedDigit()
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(.primary.opacity(0.1), in: Capsule())
+                .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func detailCard(now: Date) -> some View {
+        let netHourly = earningPerSecond * 3600
+        return VStack(spacing: 5) {
+            Group {
+                if rates.hasDeductions {
+                    Text("Take-home \(amountText(netHourly))/hr after \(rates.deduction.formatted())% deductions")
+                } else {
+                    Text("Gross \(amountText(netHourly))/hr — no deductions added")
+                }
+                if let start = timerStore.sessionStartDate {
+                    Text("Started \(start.formatted(date: .omitted, time: .shortened))")
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
+            if state != .idle {
+                Text("At this rate: \(amountText(netHourly)) by the hour")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.green)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .contentCard(cornerRadius: 16)
+    }
+
+    private var statsRow: some View {
+        let calendar = Calendar.current
+        let today = sessions.filter { calendar.isDateInToday($0.endDate) }
+        let todayTotal = today.reduce(0) { $0 + $1.totalEarned }
+        let last = sessions.first
+
+        return HStack(spacing: 10) {
+            StatTile(
+                label: "Today so far",
+                value: amountText(todayTotal),
+                detail: today.count == 1 ? "1 session" : "\(today.count) sessions"
+            )
+            StatTile(
+                label: "Last session",
+                value: last.map { amountText($0.totalEarned) } ?? "—",
+                detail: last.map {
+                    "\(SessionFormatters.duration($0.duration)) · \($0.endDate.formatted(date: .omitted, time: .shortened))"
+                } ?? "Nothing archived yet"
+            )
+        }
+    }
+
+    // MARK: - Controls
+
+    /// Idle = Start. Running = Pause. Paused = Resume + Archive & Reset.
+    /// The hint slot is always present so buttons sit at the same height in every state.
+    private var controlSection: some View {
+        VStack(spacing: 0) {
+            Text("“Archive & Reset” saves the current numbers to Records and resets the meter.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .opacity(state == .paused && !hasArchived ? 1 : 0)
+                .frame(maxWidth: .infinity, minHeight: hintSlotHeight, maxHeight: hintSlotHeight, alignment: .bottom)
+                .padding(.bottom, 7)
+
+            GlassEffectContainer(spacing: 10) {
+                HStack(spacing: 10) {
+                    switch state {
+                    case .idle:
+                        meterButton("Start", systemImage: "play.fill", prominentTint: .blue) {
+                            timerStore.start()
+                        }
+                    case .running:
+                        meterButton("Pause", systemImage: "pause.fill") {
+                            timerStore.pause()
+                        }
+                    case .paused:
+                        meterButton("Resume", systemImage: "play.fill", prominentTint: .green) {
+                            timerStore.start()
+                        }
+                        meterButton("Archive & Reset", systemImage: "archivebox.fill") {
+                            archiveAndReset()
+                        }
+                    }
+                }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: state)
+    }
+
+    /// Glass button; pass `prominentTint` for the primary action of a state.
+    @ViewBuilder
+    private func meterButton(
+        _ title: String,
+        systemImage: String,
+        prominentTint: Color? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        let button = Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, minHeight: 30)
+        }
+        .controlSize(.large)
+
+        if let prominentTint {
+            button
+                .buttonStyle(.glassProminent)
+                .tint(prominentTint)
+        } else {
+            button
+                .buttonStyle(.glass)
+        }
+    }
+
+    private func archiveAndReset() {
+        guard let session = timerStore.archiveAndReset(in: modelContext) else { return }
+        hasArchived = true
+        showToast("Saved to Records — \(amountText(session.totalEarned))")
+    }
+
+    // MARK: - Toast
+
+    @ViewBuilder
+    private var toast: some View {
+        if let toastMessage {
+            Label(toastMessage, systemImage: "checkmark.circle.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .symbolRenderingMode(.multicolor)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 11)
+                .glassEffect(.regular.tint(.green.opacity(0.25)), in: .capsule)
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                // Taps pass through to whatever is underneath.
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func showToast(_ message: String) {
+        toastTask?.cancel()
+        withAnimation(.spring(duration: 0.35)) {
+            toastMessage = message
+        }
+        toastTask = Task {
+            try? await Task.sleep(for: toastDuration)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                toastMessage = nil
+            }
+        }
+    }
+
+    // MARK: - Landscape
 
     private func landscapeLayout(width: CGFloat, now: Date) -> some View {
         Group {
@@ -144,7 +346,13 @@ struct ContentView: View {
                         .ignoresSafeArea()
 
                     VStack(spacing: 18) {
-                        landscapeAmount(now: now)
+                        Text(amountText(timerStore.netEarned(at: now)))
+                            .font(.system(size: 150, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .minimumScaleFactor(0.35)
+                            .lineLimit(1)
+                            .foregroundStyle(.white.opacity(0.82))
+                            .padding(.horizontal, 24)
 
                         if width > 700 {
                             Text(elapsedClockText(timerStore.elapsed(at: now)))
@@ -164,108 +372,26 @@ struct ContentView: View {
         }
     }
 
-    private var screenTitle: some View {
-        Text(titleOptions[titleIndex])
-            .font(.system(size: 28, weight: .bold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.96))
-            .multilineTextAlignment(.center)
-            .lineLimit(2)
-            .minimumScaleFactor(0.72)
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .center)
-            .padding(.bottom, 4)
-            .contentTransition(.opacity)
-            .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    titleIndex = (titleIndex + 1) % titleOptions.count
-                }
-            }
-    }
+    // MARK: - Formatting
 
-    private func heroSection(now: Date) -> some View {
-        VStack(spacing: 18) {
-            VStack(spacing: 12) {
-                Text(amountText(timerStore.netEarned(at: now)))
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.6)
-                    .foregroundStyle(heroPrimaryTextColor)
-
-                Text(elapsedClockText(timerStore.elapsed(at: now)))
-                    .font(.title3.weight(.medium))
-                    .monospacedDigit()
-                    .foregroundStyle(heroSecondaryTextColor)
-            }
-
-            rateChip
+    /// `MM:SS`, or `H:MM:SS` once past an hour.
+    private func elapsedClockText(_ elapsed: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(elapsed))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 28)
-        .heroSurface()
+        return String(format: "%02d:%02d", minutes, seconds)
     }
 
-    private func landscapeAmount(now: Date) -> some View {
-        Text(amountText(timerStore.netEarned(at: now)))
-            .font(.system(size: 150, weight: .bold, design: .rounded))
-            .monospacedDigit()
-            .minimumScaleFactor(0.35)
-            .lineLimit(1)
-            .foregroundStyle(.white.opacity(0.82))
-            .padding(.horizontal, 24)
+    private func amountText(_ amount: Double) -> String {
+        "$\(amount.formatted(.number.precision(.fractionLength(2))))"
     }
 
-    private var rateChip: some View {
-        HStack(spacing: 4) {
-            Text("≈")
-            Text("$\(earningPerSecond.formatted(.number.precision(.fractionLength(4))))")
-                .monospacedDigit()
-            Text("/ sec")
-        }
-        .font(.subheadline.weight(.medium))
-        .foregroundStyle(heroChipTextColor)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            colorScheme == .dark ? Color.white.opacity(0.14) : Color.white.opacity(0.28),
-            in: Capsule()
-        )
-    }
-
-    /// Idle = Start. Running = Pause. Paused = Resume + Archive & Reset.
-    /// Restyled in Phase 2; this phase only switches the logic over.
-    private var controlSection: some View {
-        HStack(spacing: 12) {
-            switch timerStore.state {
-            case .idle:
-                Button { timerStore.start() } label: {
-                    controlLabel("Start", systemImage: "play.fill")
-                }
-                .controlButtonStyle(prominent: true, tint: .blue)
-            case .running:
-                Button { timerStore.pause() } label: {
-                    controlLabel("Pause", systemImage: "pause.fill")
-                }
-                .controlButtonStyle(prominent: false, tint: .primary)
-            case .paused:
-                Button { timerStore.start() } label: {
-                    controlLabel("Resume", systemImage: "play.fill")
-                }
-                .controlButtonStyle(prominent: true, tint: .green)
-
-                Button { timerStore.archiveAndReset(in: modelContext) } label: {
-                    controlLabel("Archive & Reset", systemImage: "archivebox.fill")
-                }
-                .controlButtonStyle(prominent: false, tint: .primary)
-            }
-        }
-    }
-
-    private func controlLabel(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .padding(.vertical, 5)
-            .frame(maxWidth: .infinity)
+    private func perSecondText(_ value: Double) -> String {
+        "$\(value.formatted(.number.precision(.fractionLength(4))))"
     }
 
     // MARK: - Hidden reset
@@ -310,57 +436,100 @@ struct ContentView: View {
     }
 }
 
-#Preview {
-    RootTabView()
-        .environment(SalaryTimerStore())
-        .modelContainer(for: SalarySession.self, inMemory: true)
+// MARK: - Components
+
+/// Ready / Running / Paused. Only the word "Running" pulses, and not under Reduce Motion.
+private struct StateChip: View {
+    let state: MeterState
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var title: String {
+        switch state {
+        case .idle: "Ready"
+        case .running: "Running"
+        case .paused: "Paused"
+        }
+    }
+
+    private var tint: Color {
+        switch state {
+        case .idle: .blue
+        case .running: .green
+        case .paused: .orange
+        }
+    }
+
+    var body: some View {
+        Group {
+            if state == .running && !reduceMotion {
+                Text(title)
+                    .phaseAnimator([1.0, 0.55]) { content, opacity in
+                        content.opacity(opacity)
+                    } animation: { _ in
+                        .easeInOut(duration: 0.9)
+                    }
+            } else {
+                Text(title)
+            }
+        }
+        .font(.system(size: 12.5, weight: .bold))
+        .tracking(0.5)
+        .textCase(.uppercase)
+        .foregroundStyle(tint)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .background(tint.opacity(0.14), in: Capsule())
+        .overlay(Capsule().stroke(tint.opacity(0.4), lineWidth: 1))
+        .animation(.easeInOut(duration: 0.2), value: state)
+    }
 }
 
-private extension View {
-    @ViewBuilder
-    func heroSurface() -> some View {
-        if #available(iOS 26.0, *) {
-            self
-                .glassEffect(.regular.tint(.white.opacity(0.08)).interactive(), in: .rect(cornerRadius: 32))
-        } else {
-            self
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 32, style: .continuous)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                }
-        }
-    }
+private struct StatTile: View {
+    let label: String
+    let value: String
+    let detail: String
 
-    @ViewBuilder
-    func controlButtonStyle(prominent: Bool, tint: Color) -> some View {
-        if #available(iOS 26.0, *) {
-            if prominent {
-                self
-                    .font(.headline)
-                    .padding(.vertical, 10)
-                    .buttonStyle(GlassProminentButtonStyle())
-            } else {
-                self
-                    .font(.headline)
-                    .padding(.vertical, 10)
-                    .buttonStyle(GlassButtonStyle())
-                    .tint(tint)
-            }
-        } else {
-            if prominent {
-                self
-                    .font(.headline)
-                    .padding(.vertical, 10)
-                    .buttonStyle(BorderedProminentButtonStyle())
-                    .tint(tint)
-            } else {
-                self
-                    .font(.headline)
-                    .padding(.vertical, 10)
-                    .buttonStyle(BorderedButtonStyle())
-                    .tint(tint)
-            }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 11.5, weight: .bold))
+                .tracking(0.8)
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 19, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.top, 1)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .contentCard(cornerRadius: 16)
+        .accessibilityElement(children: .combine)
     }
+}
+
+extension View {
+    /// Flat translucent card for content (glass is reserved for controls).
+    func contentCard(cornerRadius: CGFloat) -> some View {
+        background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(.primary.opacity(0.09), lineWidth: 1)
+            }
+    }
+}
+
+#Preview {
+    RootTabView()
+        .environment(SalaryTimerStore(restoresSession: false))
+        .modelContainer(for: SalarySession.self, inMemory: true)
 }

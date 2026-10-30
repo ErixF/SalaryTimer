@@ -22,7 +22,7 @@ struct SessionLogView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AmbientBackground(isRunning: timerStore.isRunning)
+                AmbientBackground(state: timerStore.state)
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
