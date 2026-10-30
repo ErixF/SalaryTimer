@@ -86,13 +86,18 @@ private struct SalaryTimerExpandedFooter: View {
 
     var body: some View {
         HStack {
-            Text(timerInterval: context.state.sessionStartDate ... .distantFuture, countsDown: false, showsHours: true)
+            Text(
+                timerInterval: context.state.sessionStartDate ... .distantFuture,
+                pauseTime: context.state.pausedAt,
+                countsDown: false,
+                showsHours: true
+            )
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(style.secondaryText)
 
             Spacer(minLength: 12)
 
-            Text("LIVE")
+            Text(context.state.pausedAt == nil ? "LIVE" : "PAUSED")
                 .font(.caption2.weight(.bold))
                 .tracking(1)
                 .padding(.horizontal, 8)
@@ -236,7 +241,8 @@ private enum SalaryTimerLiveActivityStyle {
 
 private enum SalaryTimerAmountCalculator {
     static func amount(for state: SalaryTimerAttributes.ContentState, now: Date) -> Double {
-        let elapsed = max(0, now.timeIntervalSince(state.amountAnchorDate))
+        let end = state.pausedAt ?? now
+        let elapsed = max(0, end.timeIntervalSince(state.amountAnchorDate))
         return state.startingAmount + (elapsed * state.earningPerSecond)
     }
 }

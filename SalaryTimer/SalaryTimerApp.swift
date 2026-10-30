@@ -21,11 +21,6 @@ struct SalaryTimerApp: App {
     }
 }
 
-@Observable
-final class SalaryTimerStore {
-    var isRunning: Bool = false
-}
-
 struct RootTabView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 

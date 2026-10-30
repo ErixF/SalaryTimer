@@ -6,17 +6,16 @@
 //
 
 import SwiftUI
-import ActivityKit
 import SwiftData
 
 struct ContentView: View {
     // MARK: - Persisted income settings (owned by the Profile tab)
-    @AppStorage("profile.incomeType") private var incomeType: Int = 0
-    @AppStorage("profile.hourlyRate") private var hourlyRateText: String = ""
-    @AppStorage("profile.monthlyIncome") private var monthlyIncomeText: String = ""
-    @AppStorage("profile.taxRate") private var taxRateText: String = ""
-    @AppStorage("profile.hoursPerDay") private var hoursPerDayText: String = ""
-    @AppStorage("profile.daysPerMonth") private var daysPerMonthText: String = ""
+    @AppStorage(ProfileKeys.incomeType) private var incomeType: Int = 0
+    @AppStorage(ProfileKeys.hourlyRate) private var hourlyRateText: String = ""
+    @AppStorage(ProfileKeys.monthlyIncome) private var monthlyIncomeText: String = ""
+    @AppStorage(ProfileKeys.taxRate) private var taxRateText: String = ""
+    @AppStorage(ProfileKeys.hoursPerDay) private var hoursPerDayText: String = ""
+    @AppStorage(ProfileKeys.daysPerMonth) private var daysPerMonthText: String = ""
 
     // MARK: - Local UI state
     @State private var showPopup = false
@@ -28,21 +27,8 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SalaryTimerStore.self) private var timerStore
 
-    // MARK: - Timer
-    @State private var elapsed: TimeInterval = 0
-    @State private var timer: Timer? = nil
-    @State private var lastStart: Date? = nil
-    @State private var liveActivity: Activity<SalaryTimerAttributes>? = nil
-    @State private var liveActivitySessionStartDate: Date? = nil
-    @State private var lastLiveActivityRefreshDate: Date? = nil
-    @State private var lastLiveActivityRate: Double = 0
-
-    private var hourlyRate: Double { Double(hourlyRateText) ?? 0 }
-    private var monthlyIncome: Double { Double(monthlyIncomeText) ?? 0 }
-    private var taxRate: Double { Double(taxRateText) ?? 0 }
-    private var hoursPerDay: Double { Double(hoursPerDayText) ?? 0 }
-    private var daysPerMonth: Double { Double(daysPerMonthText) ?? 0 }
-    private let liveActivityRefreshInterval: TimeInterval = 15
+    /// Size of the invisible top-right area that triggers the hidden reset.
+    private let hiddenResetAreaSize: CGFloat = 64
     private let titleOptions = [
         "Getting Paid to Exist",
         "Clocking In to Breathe",
@@ -57,25 +43,25 @@ struct ContentView: View {
         "Professional Breathing Session"
     ]
 
-    /// Net earning per second, after tax.
-    private var earningPerSecond: Double {
-        if incomeType == 0 {
-            let netHourly = hourlyRate * (1 - taxRate / 100)
-            return netHourly / 3600
-        } else {
-            let netMonthly = monthlyIncome * (1 - taxRate / 100)
-            let totalSeconds = daysPerMonth * hoursPerDay * 3600
-            return totalSeconds > 0 ? netMonthly / totalSeconds : 0
-        }
+    private var rates: RateCalculator {
+        RateCalculator(
+            incomeType: incomeType,
+            hourlyRateText: hourlyRateText,
+            monthlyIncomeText: monthlyIncomeText,
+            hoursPerDayText: hoursPerDayText,
+            daysPerMonthText: daysPerMonthText,
+            deductionText: taxRateText
+        )
     }
 
-    /// Total earned so far.
-    private var totalEarned: Double {
-        elapsed * earningPerSecond
+    /// Net earning per second: the locked segment rate while running, otherwise the Profile rate
+    /// (which is what the next Start/Resume will use).
+    private var earningPerSecond: Double {
+        timerStore.isRunning ? timerStore.segmentNetPerSecond : rates.netPerSecond
     }
 
     private var isRunning: Bool {
-        timer != nil
+        timerStore.isRunning
     }
 
     private var accentColor: Color {
@@ -94,11 +80,20 @@ struct ContentView: View {
         colorScheme == .dark ? .white.opacity(0.84) : .black.opacity(0.78)
     }
 
-    private var elapsedClockText: String {
-        let totalSeconds = Int(elapsed)
-        let minutes = totalSeconds / 60
+    /// `MM:SS`, or `H:MM:SS` once past an hour.
+    private func elapsedClockText(_ elapsed: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(elapsed))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
         let seconds = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        }
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    private func amountText(_ amount: Double) -> String {
+        "$\(amount.formatted(.number.precision(.fractionLength(2))))"
     }
 
     var body: some View {
@@ -108,12 +103,18 @@ struct ContentView: View {
                     AmbientBackground(isRunning: isRunning)
                         .ignoresSafeArea()
 
-                    if geo.size.height >= geo.size.width {
-                        portraitLayout
-                    } else {
-                        landscapeLayout(width: geo.size.width)
+                    // Values are derived from timestamps, so a 1s timeline is all the ticking needed.
+                    TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                        if geo.size.height >= geo.size.width {
+                            portraitLayout(now: timeline.date)
+                        } else {
+                            landscapeLayout(width: geo.size.width, now: timeline.date)
+                        }
                     }
                 }
+            }
+            .overlay(alignment: .topTrailing) {
+                hiddenResetArea
             }
             .alert("RESET APP", isPresented: $showPopup) {
                 Button("OK", action: resetApp)
@@ -121,11 +122,11 @@ struct ContentView: View {
         }
     }
 
-    private var portraitLayout: some View {
+    private func portraitLayout(now: Date) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 screenTitle
-                heroSection
+                heroSection(now: now)
                 controlSection
             }
             .padding(.horizontal, 20)
@@ -135,7 +136,7 @@ struct ContentView: View {
         .safeAreaPadding(.top, 8)
     }
 
-    private func landscapeLayout(width: CGFloat) -> some View {
+    private func landscapeLayout(width: CGFloat, now: Date) -> some View {
         Group {
             if width < 1000 {
                 ZStack {
@@ -143,10 +144,10 @@ struct ContentView: View {
                         .ignoresSafeArea()
 
                     VStack(spacing: 18) {
-                        landscapeAmount
+                        landscapeAmount(now: now)
 
                         if width > 700 {
-                            Text(elapsedClockText)
+                            Text(elapsedClockText(timerStore.elapsed(at: now)))
                                 .font(.system(size: 36, weight: .medium, design: .rounded))
                                 .monospacedDigit()
                                 .foregroundStyle(.white.opacity(0.82))
@@ -180,16 +181,16 @@ struct ContentView: View {
             }
     }
 
-    private var heroSection: some View {
+    private func heroSection(now: Date) -> some View {
         VStack(spacing: 18) {
             VStack(spacing: 12) {
-                Text("$\(totalEarned.formatted(.number.precision(.fractionLength(2))))")
+                Text(amountText(timerStore.netEarned(at: now)))
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
                     .foregroundStyle(heroPrimaryTextColor)
 
-                Text(elapsedClockText)
+                Text(elapsedClockText(timerStore.elapsed(at: now)))
                     .font(.title3.weight(.medium))
                     .monospacedDigit()
                     .foregroundStyle(heroSecondaryTextColor)
@@ -203,8 +204,8 @@ struct ContentView: View {
         .heroSurface()
     }
 
-    private var landscapeAmount: some View {
-        Text("$\(totalEarned.formatted(.number.precision(.fractionLength(2))))")
+    private func landscapeAmount(now: Date) -> some View {
+        Text(amountText(timerStore.netEarned(at: now)))
             .font(.system(size: 150, weight: .bold, design: .rounded))
             .monospacedDigit()
             .minimumScaleFactor(0.35)
@@ -230,79 +231,52 @@ struct ContentView: View {
         )
     }
 
+    /// Idle = Start. Running = Pause. Paused = Resume + Archive & Reset.
+    /// Restyled in Phase 2; this phase only switches the logic over.
     private var controlSection: some View {
         HStack(spacing: 12) {
-            Button(action: startTimer) {
-                Label(isRunning ? "Running" : "Start", systemImage: isRunning ? "play.fill" : "play.circle.fill")
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .padding(.vertical, 5)
-                    .frame(maxWidth: .infinity)
-            }
-            .controlButtonStyle(prominent: true, tint: accentColor)
-            .disabled(isRunning)
-
-            Button(action: stopTimer) {
-                Label("Stop", systemImage: "pause.fill")
-                    .padding(.vertical, 5)
-                    .frame(maxWidth: .infinity)
-            }
-            .controlButtonStyle(prominent: false, tint: .red)
-            .disabled(!isRunning)
-
-            Button(action: resetTimer) {
-                Label("Reset", systemImage: "arrow.counterclockwise")
-                    .padding(.vertical, 5)
-                    .frame(maxWidth: .infinity)
-            }
-            .controlButtonStyle(prominent: false, tint: .orange)
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    registerHiddenResetTap()
+            switch timerStore.state {
+            case .idle:
+                Button { timerStore.start() } label: {
+                    controlLabel("Start", systemImage: "play.fill")
                 }
-            )
+                .controlButtonStyle(prominent: true, tint: .blue)
+            case .running:
+                Button { timerStore.pause() } label: {
+                    controlLabel("Pause", systemImage: "pause.fill")
+                }
+                .controlButtonStyle(prominent: false, tint: .primary)
+            case .paused:
+                Button { timerStore.start() } label: {
+                    controlLabel("Resume", systemImage: "play.fill")
+                }
+                .controlButtonStyle(prominent: true, tint: .green)
+
+                Button { timerStore.archiveAndReset(in: modelContext) } label: {
+                    controlLabel("Archive & Reset", systemImage: "archivebox.fill")
+                }
+                .controlButtonStyle(prominent: false, tint: .primary)
+            }
         }
     }
 
-    // MARK: - Timer controls
-    private func startTimer() {
-        guard timer == nil else { return }
-        let now = Date()
-        lastStart = now
-        liveActivitySessionStartDate = now.addingTimeInterval(-elapsed)
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            commitElapsed()
-            refreshLiveActivityIfNeeded()
-        }
-        startLiveActivity(at: now)
-        timerStore.isRunning = true
+    private func controlLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity)
     }
 
-    private func stopTimer() {
-        let now = Date()
-        commitElapsed(to: now)
-        timer?.invalidate()
-        timer = nil
-        lastStart = nil
-        endLiveActivity(at: now)
-        timerStore.isRunning = false
-    }
+    // MARK: - Hidden reset
 
-    private func resetTimer() {
-        stopTimer()
-        persistSessionIfNeeded()
-        elapsed = 0
-    }
-
-    private func persistSessionIfNeeded() {
-        guard elapsed > 0 else { return }
-        let session = SalarySession(
-            endDate: Date(),
-            totalEarned: totalEarned,
-            duration: elapsed,
-            unitPrice: earningPerSecond
-        )
-        modelContext.insert(session)
+    /// Invisible tap target in the top-right corner. 10 quick taps open the reset alert.
+    private var hiddenResetArea: some View {
+        Color.clear
+            .frame(width: hiddenResetAreaSize, height: hiddenResetAreaSize)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: registerHiddenResetTap)
+            .accessibilityHidden(true)
     }
 
     private func registerHiddenResetTap() {
@@ -322,119 +296,17 @@ struct ContentView: View {
         }
     }
 
-    /// Reset all inputs and timer to initial state.
+    /// Saves any metered time, resets the meter, and clears all Profile inputs.
     private func resetApp() {
-        stopTimer()
-        persistSessionIfNeeded()
-        endAllLiveActivities()
+        timerStore.resetAll(in: modelContext)
         incomeType = 0
         hourlyRateText = ""
         monthlyIncomeText = ""
         taxRateText = ""
         hoursPerDayText = ""
         daysPerMonthText = ""
-        elapsed = 0
         resetTapCount = 0
         lastResetTapDate = nil
-        liveActivitySessionStartDate = nil
-    }
-
-    private func commitElapsed(to now: Date = Date()) {
-        guard let start = lastStart else { return }
-        elapsed += now.timeIntervalSince(start)
-        lastStart = now
-    }
-
-    private func currentLiveActivityState(at now: Date) -> SalaryTimerAttributes.ContentState {
-        SalaryTimerAttributes.ContentState(
-            sessionStartDate: liveActivitySessionStartDate ?? now,
-            amountAnchorDate: now,
-            startingAmount: totalEarned,
-            earningPerSecond: earningPerSecond
-        )
-    }
-
-    private func startLiveActivity(at now: Date) {
-        guard #available(iOS 16.1, *), earningPerSecond > 0 else { return }
-
-        let attributes = SalaryTimerAttributes(currencyCode: "USD")
-        let content = ActivityContent(state: currentLiveActivityState(at: now), staleDate: nil)
-
-        Task {
-            if let existingActivity = liveActivity {
-                await existingActivity.end(nil, dismissalPolicy: ActivityUIDismissalPolicy.immediate)
-            }
-
-            do {
-                liveActivity = try Activity.request(attributes: attributes, content: content, pushType: nil)
-                lastLiveActivityRefreshDate = now
-                lastLiveActivityRate = earningPerSecond
-            } catch {
-                liveActivity = nil
-            }
-        }
-    }
-
-    private func refreshLiveActivityIfNeeded(force: Bool = false) {
-        guard #available(iOS 16.1, *), let liveActivity else { return }
-
-        let now = Date()
-        let rateChanged = abs(earningPerSecond - lastLiveActivityRate) > 0.000_001
-        let isRefreshDue = lastLiveActivityRefreshDate.map { now.timeIntervalSince($0) >= liveActivityRefreshInterval } ?? true
-
-        guard force || rateChanged || isRefreshDue else { return }
-
-        let content = ActivityContent(state: currentLiveActivityState(at: now), staleDate: nil)
-
-        Task {
-            await liveActivity.update(content)
-            lastLiveActivityRefreshDate = now
-            lastLiveActivityRate = earningPerSecond
-        }
-    }
-
-    private func endLiveActivity(at now: Date) {
-        guard #available(iOS 16.1, *) else { return }
-        guard let liveActivity else {
-            lastLiveActivityRefreshDate = nil
-            lastLiveActivityRate = 0
-            return
-        }
-
-        let content = ActivityContent(state: currentLiveActivityState(at: now), staleDate: now)
-
-        Task {
-            await liveActivity.end(content, dismissalPolicy: ActivityUIDismissalPolicy.immediate)
-            self.liveActivity = nil
-            liveActivitySessionStartDate = nil
-            lastLiveActivityRefreshDate = nil
-            lastLiveActivityRate = 0
-        }
-    }
-
-    private func endAllLiveActivities() {
-        guard #available(iOS 16.1, *) else { return }
-
-        let activities = Activity<SalaryTimerAttributes>.activities
-
-        guard !activities.isEmpty else {
-            liveActivity = nil
-            liveActivitySessionStartDate = nil
-            lastLiveActivityRefreshDate = nil
-            lastLiveActivityRate = 0
-            return
-        }
-
-        Task {
-            for activity in activities {
-                await activity.end(nil, dismissalPolicy: ActivityUIDismissalPolicy.immediate)
-            }
-
-            liveActivity = nil
-            liveActivitySessionStartDate = nil
-            lastLiveActivityRefreshDate = nil
-            lastLiveActivityRate = 0
-        }
     }
 }
 

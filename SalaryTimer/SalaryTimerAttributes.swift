@@ -14,6 +14,8 @@ struct SalaryTimerAttributes: ActivityAttributes {
         var amountAnchorDate: Date
         var startingAmount: Double
         var earningPerSecond: Double
+        /// Set while the meter is paused; the activity shows frozen values.
+        var pausedAt: Date? = nil
     }
 
     var currencyCode: String = "USD"
