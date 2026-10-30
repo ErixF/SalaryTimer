@@ -128,6 +128,9 @@ struct ContentView: View {
             .frame(minHeight: height)
         }
         .scrollBounceBehavior(.basedOnSize)
+        // The meter is a single-screen dashboard; past XXX Large the cards push the
+        // controls under the tab bar, so text stops growing there.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     private var screenTitle: some View {
@@ -276,7 +279,7 @@ struct ContentView: View {
         _ title: String,
         systemImage: String,
         prominentTint: Color? = nil,
-        action: @escaping () -> Void
+        action: @escaping @MainActor () -> Void
     ) -> some View {
         let button = Button(action: action) {
             Label(title, systemImage: systemImage)

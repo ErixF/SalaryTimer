@@ -106,7 +106,7 @@ private struct AllRecordsList: View {
 
                 Spacer(minLength: 8)
 
-                Text(group.total, format: .currency(code: currencyCode))
+                Text(SessionFormatters.money(group.total))
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(.blue)
@@ -130,7 +130,7 @@ private struct AllRecordsList: View {
         .accessibilityAddTraits(.isButton)
         .textCase(nil)
         .padding(.leading, -8)
-        .accessibilityLabel("\(group.title), \(group.total.formatted(.currency(code: currencyCode)))")
+        .accessibilityLabel("\(group.title), \(SessionFormatters.money(group.total))")
         .accessibilityHint(isCollapsed ? "Expands this group" : "Collapses this group")
     }
 
@@ -152,7 +152,7 @@ private struct SummaryStrip: View {
         let seconds = sessions.reduce(0) { $0 + $1.duration }
 
         HStack(spacing: 10) {
-            tile("Total earned", total.formatted(.currency(code: currencyCode)))
+            tile("Total earned", SessionFormatters.money(total))
             tile("Time metered", SessionFormatters.totalHours(seconds))
             tile("Sessions", "\(sessions.count)")
         }
@@ -227,7 +227,7 @@ private struct SessionRow: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
-                    Text(session.totalEarned, format: .currency(code: currencyCode))
+                    Text(SessionFormatters.money(session.totalEarned))
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .lineLimit(1)
@@ -418,7 +418,12 @@ enum SessionFormatters {
     }
 
     static func unitPrice(_ value: Double, currencyCode: String) -> String {
-        value.formatted(.currency(code: currencyCode).precision(.fractionLength(4)))
+        "$\(value.formatted(.number.precision(.fractionLength(4))))"
+    }
+
+    /// `$1,234.56` — plain "$" like the Meter, rather than the locale's "US$".
+    static func money(_ value: Double) -> String {
+        "$\(value.formatted(.number.precision(.fractionLength(2))))"
     }
 
     static func time(_ date: Date) -> String {
