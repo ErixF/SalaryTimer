@@ -16,6 +16,7 @@ struct ContentView: View {
     @AppStorage(ProfileKeys.taxRate) private var taxRateText: String = ""
     @AppStorage(ProfileKeys.hoursPerDay) private var hoursPerDayText: String = ""
     @AppStorage(ProfileKeys.daysPerMonth) private var daysPerMonthText: String = ""
+    @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
 
     /// Set after the first successful Archive & Reset; hides the first-use hint for good.
     @AppStorage("meter.hasArchived") private var hasArchived = false
@@ -373,11 +374,11 @@ struct ContentView: View {
     }
 
     private func amountText(_ amount: Double) -> String {
-        "$\(amount.formatted(.number.precision(.fractionLength(2))))"
+        Money.string(amount, symbol: currencySymbol)
     }
 
     private func perSecondText(_ value: Double) -> String {
-        "$\(value.formatted(.number.precision(.fractionLength(4))))"
+        Money.string(value, symbol: currencySymbol, fractionDigits: 4...4)
     }
 
     // MARK: - Hidden reset

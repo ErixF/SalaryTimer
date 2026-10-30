@@ -15,6 +15,7 @@ struct ProfileView: View {
     @AppStorage(ProfileKeys.taxRate) private var taxRateText: String = ""
     @AppStorage(ProfileKeys.hoursPerDay) private var hoursPerDayText: String = ""
     @AppStorage(ProfileKeys.daysPerMonth) private var daysPerMonthText: String = ""
+    @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
 
     @Environment(SalaryTimerStore.self) private var timerStore
 
@@ -40,7 +41,7 @@ struct ProfileView: View {
 
     /// Changes to any input trigger the "Saved" check (values auto-save via @AppStorage).
     private var editKey: [String] {
-        ["\(incomeType)", hourlyRateText, monthlyIncomeText, taxRateText, hoursPerDayText, daysPerMonthText]
+        ["\(incomeType)", currencySymbol, hourlyRateText, monthlyIncomeText, taxRateText, hoursPerDayText, daysPerMonthText]
     }
 
     var body: some View {
@@ -170,11 +171,27 @@ struct ProfileView: View {
             .pickerStyle(.segmented)
             .padding(.bottom, 6)
 
+            // Label only — changing it relabels every amount, including saved records.
+            HStack {
+                Text("Currency Symbol")
+                    .font(.body.weight(.medium))
+                Spacer(minLength: 8)
+                Picker("Currency Symbol", selection: $currencySymbol) {
+                    ForEach(Money.symbols, id: \.self) { symbol in
+                        Text(symbol).tag(symbol)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+            }
+            .padding(.vertical, 2)
+            Divider()
+
             // Each mode keeps its own stored values; switching never clears the other.
             if incomeType == 0 {
-                fieldRow("Hourly Rate", placeholder: "28", unit: "$/hr", text: $hourlyRateText, field: .hourlyRate)
+                fieldRow("Hourly Rate", placeholder: "28", unit: "\(currencySymbol)/hr", text: $hourlyRateText, field: .hourlyRate)
             } else {
-                fieldRow("Monthly Income", placeholder: "4000", unit: "$/mo", text: $monthlyIncomeText, field: .monthlyIncome)
+                fieldRow("Monthly Income", placeholder: "4000", unit: "\(currencySymbol)/mo", text: $monthlyIncomeText, field: .monthlyIncome)
                 Divider()
                 fieldRow("Hours / Day", placeholder: "7", unit: "hrs", text: $hoursPerDayText, field: .hoursPerDay)
                 Divider()
@@ -259,7 +276,7 @@ struct ProfileView: View {
                     "\(money(rates.netHourly))/hr",
                     isResult: true
                 )
-                previewRow("Per second", "$\(rates.netPerSecond.formatted(.number.precision(.fractionLength(4))))/sec")
+                previewRow("Per second", "\(Money.string(rates.netPerSecond, symbol: currencySymbol, fractionDigits: 4...4))/sec")
 
                 if rates.incomeType == 0 {
                     previewRow("Per 8-hour day", money(rates.netHourly * 8))
@@ -325,12 +342,12 @@ struct ProfileView: View {
     }
 
     private func money(_ value: Double) -> String {
-        "$\(value.formatted(.number.precision(.fractionLength(2))))"
+        Money.string(value, symbol: currencySymbol)
     }
 
     /// `$4,000` — no forced decimals for whole amounts.
     private func wholeMoney(_ value: Double) -> String {
-        "$\(value.formatted(.number.precision(.fractionLength(0...2))))"
+        Money.string(value, symbol: currencySymbol, fractionDigits: 0...2)
     }
 
     private func number(_ value: Double) -> String {

@@ -16,7 +16,7 @@ struct SessionLogView: View {
 
     @State private var segment: Segment = .all
 
-    private let currencyCode = "USD"
+    @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
 
     var body: some View {
         NavigationStack {
@@ -32,9 +32,9 @@ struct SessionLogView: View {
 
                 switch segment {
                 case .all:
-                    AllRecordsList(currencyCode: currencyCode)
+                    AllRecordsList(currencySymbol: currencySymbol)
                 case .top:
-                    TopTenList(currencyCode: currencyCode)
+                    TopTenList(currencySymbol: currencySymbol)
                 }
             }
             .background {
@@ -65,13 +65,13 @@ private struct AllRecordsList: View {
     /// so the index bar keeps every entry and can still jump to a collapsed group.
     @State private var collapsed: Set<Date> = []
 
-    let currencyCode: String
+    let currencySymbol: String
 
     var body: some View {
         let groups = SessionGrouping.groups(sessions)
 
         VStack(spacing: 0) {
-            SummaryStrip(sessions: sessions, currencyCode: currencyCode)
+            SummaryStrip(sessions: sessions, currencySymbol: currencySymbol)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 4)
 
@@ -82,7 +82,7 @@ private struct AllRecordsList: View {
                     ForEach(collapsed.contains(group.id) ? [] : group.sessions) { session in
                         SessionRow(
                             session: session,
-                            currencyCode: currencyCode,
+                            currencySymbol: currencySymbol,
                             trailingText: group.kind == .day
                                 ? SessionFormatters.time(session.endDate)
                                 : SessionFormatters.monthDay.string(from: session.endDate)
@@ -113,7 +113,7 @@ private struct AllRecordsList: View {
 
                 Spacer(minLength: 8)
 
-                Text(SessionFormatters.money(group.total))
+                Text(SessionFormatters.money(group.total, symbol: currencySymbol))
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(.blue)
@@ -137,7 +137,7 @@ private struct AllRecordsList: View {
         .accessibilityAddTraits(.isButton)
         .textCase(nil)
         .padding(.leading, -8)
-        .accessibilityLabel("\(group.title), \(SessionFormatters.money(group.total))")
+        .accessibilityLabel("\(group.title), \(SessionFormatters.money(group.total, symbol: currencySymbol))")
         .accessibilityHint(isCollapsed ? "Expands this group" : "Collapses this group")
     }
 
@@ -152,14 +152,14 @@ private struct AllRecordsList: View {
 
 private struct SummaryStrip: View {
     let sessions: [SalarySession]
-    let currencyCode: String
+    let currencySymbol: String
 
     var body: some View {
         let total = sessions.reduce(0) { $0 + $1.totalEarned }
         let seconds = sessions.reduce(0) { $0 + $1.duration }
 
         HStack(spacing: 10) {
-            tile("Total earned", SessionFormatters.money(total))
+            tile("Total earned", SessionFormatters.money(total, symbol: currencySymbol))
             tile("Total time", SessionFormatters.duration(seconds))
             tile("Sessions", "\(sessions.count)")
         }
@@ -190,7 +190,7 @@ private struct SummaryStrip: View {
 private struct TopTenList: View {
     @Query(sort: \SalarySession.totalEarned, order: .reverse) private var sessions: [SalarySession]
 
-    let currencyCode: String
+    let currencySymbol: String
 
     var body: some View {
         let top = Array(sessions.prefix(10))
@@ -202,7 +202,7 @@ private struct TopTenList: View {
                         RankBadge(rank: index + 1)
                         SessionRow(
                             session: session,
-                            currencyCode: currencyCode,
+                            currencySymbol: currencySymbol,
                             trailingText: SessionFormatters.dayOrTime(session.endDate)
                         )
                     }
@@ -225,19 +225,19 @@ private struct TopTenList: View {
 
 private struct SessionRow: View {
     let session: SalarySession
-    let currencyCode: String
+    let currencySymbol: String
     let trailingText: String
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(SessionFormatters.money(session.totalEarned))
+                Text(SessionFormatters.money(session.totalEarned, symbol: currencySymbol))
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
-                Text("\(SessionFormatters.duration(session.duration)) • \(SessionFormatters.unitPrice(session.unitPrice, currencyCode: currencyCode))/sec")
+                Text("\(SessionFormatters.duration(session.duration)) • \(SessionFormatters.unitPrice(session.unitPrice, symbol: currencySymbol))/sec")
                     .font(.footnote)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -405,13 +405,13 @@ enum SessionFormatters {
         return "\(seconds)s"
     }
 
-    static func unitPrice(_ value: Double, currencyCode: String) -> String {
-        "$\(value.formatted(.number.precision(.fractionLength(4))))"
+    static func unitPrice(_ value: Double, symbol: String) -> String {
+        Money.string(value, symbol: symbol, fractionDigits: 4...4)
     }
 
-    /// `$1,234.56` — plain "$" like the Meter, rather than the locale's "US$".
-    static func money(_ value: Double) -> String {
-        "$\(value.formatted(.number.precision(.fractionLength(2))))"
+    /// `$1,234.56` with the user's symbol, rather than the locale's "US$".
+    static func money(_ value: Double, symbol: String) -> String {
+        Money.string(value, symbol: symbol)
     }
 
     static func time(_ date: Date) -> String {
