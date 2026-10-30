@@ -129,6 +129,51 @@ struct AmbientBackground: View {
     }
 }
 
+/// Static backdrop for Records and Profile: deep navy in dark mode, system grouped gray in light.
+struct ScreenBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if colorScheme == .dark {
+            LinearGradient(
+                stops: [
+                    .init(color: Color(hex: 0x0A1626), location: 0),
+                    .init(color: Color(hex: 0x080D16), location: 0.3),
+                    .init(color: Color(hex: 0x070A10), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            Color(.systemGroupedBackground)
+        }
+    }
+}
+
+/// Rounded content card used on Records and Profile; adapts to light/dark.
+struct GroupedCard<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            colorScheme == .dark ? Color.white.opacity(0.055) : Color(.secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(colorScheme == .dark ? Color.white.opacity(0.07) : Color.clear, lineWidth: 1)
+        }
+    }
+}
+
 extension Color {
     init(hex: UInt32) {
         self.init(
