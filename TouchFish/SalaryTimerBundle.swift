@@ -11,7 +11,6 @@ import SwiftUI
 @main
 struct SalaryTimerBundle: WidgetBundle {
     var body: some Widget {
-        SalaryTimer()
         SalaryTimerLiveActivity()
     }
 }

@@ -41,7 +41,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 
 ## Backlog (next rounds)
 
-- Live Activity: the amount is computed when the app pushes an update (15s loop while the app runs). **Custom `FormatStyle`s in `Text(.currentDate, format:)` render as grey placeholders in Live Activities** (tested on device 2026-10-30) — only Apple's built-in date/timer styles tick on their own. Redesign per HIG (compact: live timer left, amount in state-colored capsule right) is Phase C.
+- Live Activity (done 2026-10-30): moving parts are the live timer and a timer-driven `ProgressView` filling toward the next whole amount (step grows so a fill takes ≥ 60s). Compact = live timer left + state-colored capsule with `$50/hr` right; minimal = symbol in state-colored circle. **Custom `FormatStyle`s in `Text(.currentDate, format:)` render as grey placeholders in Live Activities** — only Apple's built-in date/timer views tick on their own. Amounts only change when the app pushes (15s loop while running in foreground). Template "My Widget" removed.
 - iCloud sync (storage is local SwiftData + AppStorage for now).
 - Tap a record for its gross / deductions / net breakdown (data already stored for 2.3+ records).
 - Verify first-use hint fits on smallest iPhone (iPhone SE width).

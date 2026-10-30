@@ -10,229 +10,210 @@ import SwiftUI
 import ActivityKit
 import Foundation
 
+// Live Activities can only animate Apple's built-in timer views on their own, so the moving
+// parts here are the elapsed timer and a timer-driven progress bar. Everything else is drawn
+// from the last state the app pushed.
+
 struct SalaryTimerLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SalaryTimerAttributes.self) { context in
-            SalaryTimerExpandedView(context: context, style: .content)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+            MeterActivityView(state: context.state, onDarkBackground: false)
+                .padding(14)
                 .activityBackgroundTint(nil)
                 .activitySystemActionForegroundColor(nil)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.bottom) {
-                    SalaryTimerExpandedView(
-                        context: context,
-                        amountFont: .system(size: 28, weight: .bold, design: .rounded),
-                        style: .dynamicIsland
-                    )
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 4)
+                    MeterActivityView(state: context.state, onDarkBackground: true)
+                        .padding(.horizontal, 6)
+                        .padding(.bottom, 4)
                 }
             } compactLeading: {
-                SalaryTimerCompactView(context: context)
+                LiveTimerText(state: context.state)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: 56, alignment: .leading)
             } compactTrailing: {
-                SalaryTimerCompactRateView(context: context)
+                RateCapsule(state: context.state)
             } minimal: {
-                SalaryTimerMinimalView(context: context)
+                SymbolBadge(state: context.state)
             }
-            .contentMargins(.all, 16, for: .expanded)
+            .contentMargins(.horizontal, 14, for: .expanded)
             .widgetURL(URL(string: "salarytimer://live"))
-            .keylineTint(Color.green)
+            .keylineTint(context.state.tint)
         }
     }
 }
 
-private struct SalaryTimerExpandedView: View {
-    let context: ActivityViewContext<SalaryTimerAttributes>
-    let amountFont: Font
-    let style: SalaryTimerLiveActivityStyle
+// MARK: - State styling
 
-    init(
-        context: ActivityViewContext<SalaryTimerAttributes>,
-        amountFont: Font = .system(size: 30, weight: .bold, design: .rounded),
-        style: SalaryTimerLiveActivityStyle = .content
-    ) {
-        self.context = context
-        self.amountFont = amountFont
-        self.style = style
-    }
+private extension SalaryTimerAttributes.ContentState {
+    /// Running green, paused amber — same as the Meter's state chip.
+    var tint: Color { isPaused ? .orange : .green }
+
+    var stateTitle: String { isPaused ? "Paused" : "Running" }
+
+    var hourlyRate: Double { earningPerSecond * 3600 }
+}
+
+// MARK: - Lock Screen & expanded
+
+private struct MeterActivityView: View {
+    let state: SalaryTimerAttributes.ContentState
+    /// The Dynamic Island is always dark; the Lock Screen follows the system appearance.
+    let onDarkBackground: Bool
+
+    private var secondary: Color { onDarkBackground ? .white.opacity(0.7) : .secondary }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Income")
-                        .font(.caption)
-                        .foregroundStyle(style.secondaryText)
-
-                    SalaryTimerTickerLabel(context: context, font: amountFont, color: style.primaryText)
-                }
-
-                Spacer(minLength: 12)
-
-                SalaryTimerRateLabel(context: context, style: style)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                StateChip(state: state)
+                Spacer(minLength: 8)
+                Text("≈ \(Money.string(state.hourlyRate, symbol: state.currencySymbol))/hr · \(Money.string(state.earningPerSecond, symbol: state.currencySymbol, fractionDigits: 4...4))/sec")
+                    .font(.caption.weight(.medium))
+                    .monospacedDigit()
+                    .foregroundStyle(secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
 
-            SalaryTimerExpandedFooter(context: context, style: style)
-        }
-        .foregroundStyle(style.primaryText)
-    }
-}
+            LiveTimerText(state: state)
+                .font(.system(size: 40, weight: .heavy, design: .rounded))
+                .foregroundStyle(onDarkBackground ? .white : .primary)
 
-private struct SalaryTimerExpandedFooter: View {
-    let context: ActivityViewContext<SalaryTimerAttributes>
-    let style: SalaryTimerLiveActivityStyle
-
-    var body: some View {
-        HStack {
-            Text(
-                timerInterval: context.state.sessionStartDate ... .distantFuture,
-                pauseTime: context.state.pausedAt,
-                countsDown: false,
-                showsHours: true
-            )
-                .font(.subheadline.monospacedDigit())
-                .foregroundStyle(style.secondaryText)
-
-            Spacer(minLength: 12)
-
-            Text(context.state.pausedAt == nil ? "LIVE" : "PAUSED")
-                .font(.caption2.weight(.bold))
-                .tracking(1)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(style.badgeBackground, in: Capsule())
-                .foregroundStyle(style.accent)
+            EarningsProgress(state: state, secondary: secondary)
         }
     }
 }
 
-private struct SalaryTimerCompactView: View {
-    let context: ActivityViewContext<SalaryTimerAttributes>
+/// Elapsed time, counting up live; stops at the pause point while paused.
+private struct LiveTimerText: View {
+    let state: SalaryTimerAttributes.ContentState
 
     var body: some View {
-        SalaryTimerTickerLabel(
-            context: context,
-            font: .system(size: 13, weight: .semibold, design: .rounded),
-            color: .white
+        Text(
+            timerInterval: state.sessionStartDate ... .distantFuture,
+            pauseTime: state.pausedAt,
+            countsDown: false,
+            showsHours: true
         )
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct SalaryTimerCompactRateView: View {
-    let context: ActivityViewContext<SalaryTimerAttributes>
-
-    var body: some View {
-        Text(Money.string(context.state.earningPerSecond, symbol: context.state.currencySymbol, fractionDigits: 4...4))
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-    }
-}
-
-private struct SalaryTimerMinimalView: View {
-    let context: ActivityViewContext<SalaryTimerAttributes>
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(Color.green.opacity(0.18))
-
-            Text(minimalText)
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .minimumScaleFactor(0.55)
-                .padding(4)
-        }
-    }
-
-    private var minimalText: String {
-        let amount = context.state.amount(at: Date())
-
-        if amount < 100 {
-            return amount.formatted(.number.precision(.fractionLength(0...1)))
-        }
-
-        return amount.formatted(.number.precision(.fractionLength(0)))
-    }
-}
-
-private struct SalaryTimerTickerLabel: View {
-    let context: ActivityViewContext<SalaryTimerAttributes>
-    let font: Font
-    let color: Color
-
-    var body: some View {
-        Text(Money.string(context.state.amount(at: .now), symbol: context.state.currencySymbol))
-        .font(font)
         .monospacedDigit()
-        .foregroundStyle(color)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
     }
 }
 
-private struct SalaryTimerRateLabel: View {
-    let context: ActivityViewContext<SalaryTimerAttributes>
-    let style: SalaryTimerLiveActivityStyle
+private struct StateChip: View {
+    let state: SalaryTimerAttributes.ContentState
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            Text("Rate")
-                .font(.caption)
-                .foregroundStyle(style.secondaryText)
-
-            Text("\(Money.string(context.state.earningPerSecond, symbol: context.state.currencySymbol, fractionDigits: 4...4))/s")
-                .font(.headline.monospacedDigit())
-                .foregroundStyle(style.accent)
-        }
-        .fixedSize(horizontal: true, vertical: false)
+        Text(state.stateTitle)
+            .font(.caption2.weight(.bold))
+            .tracking(0.8)
+            .textCase(.uppercase)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(state.tint, in: Capsule())
     }
 }
 
-private enum SalaryTimerLiveActivityStyle {
-    case content
-    case dynamicIsland
+// MARK: - Progress toward the next amount
 
-    var primaryText: Color {
-        switch self {
-        case .content:
-            return .primary
-        case .dynamicIsland:
-            return .white
-        }
+/// A bar that fills live toward the next whole amount, using a timer-driven ProgressView so it
+/// moves without app updates. Labels show the whole amounts at each end.
+private struct EarningsProgress: View {
+    let state: SalaryTimerAttributes.ContentState
+    let secondary: Color
+
+    /// Steps so one bar takes at least a minute to fill, even at high rates.
+    private static let steps: [Double] = [1, 5, 10, 50, 100, 500, 1000]
+    private static let minimumFillTime: TimeInterval = 60
+
+    private var step: Double {
+        guard state.earningPerSecond > 0 else { return 1 }
+        return Self.steps.first { $0 / state.earningPerSecond >= Self.minimumFillTime } ?? Self.steps.last ?? 1
     }
 
-    var secondaryText: Color {
-        switch self {
-        case .content:
-            return .secondary
-        case .dynamicIsland:
-            return .white.opacity(0.78)
-        }
+    /// Amount at the moment the app last updated (or paused).
+    private var anchorAmount: Double { state.amount(at: state.pausedAt ?? state.amountAnchorDate) }
+
+    private var lowerBound: Double { (anchorAmount / step).rounded(.down) * step }
+    private var upperBound: Double { lowerBound + step }
+
+    /// When the total reaches `amount`, extrapolated from the last update.
+    private func date(reaching amount: Double) -> Date {
+        state.amountAnchorDate.addingTimeInterval((amount - state.startingAmount) / state.earningPerSecond)
     }
 
-    var accent: Color {
-        switch self {
-        case .content:
-            return .green
-        case .dynamicIsland:
-            return .green
-        }
-    }
+    var body: some View {
+        VStack(spacing: 4) {
+            Group {
+                if state.isPaused || state.earningPerSecond <= 0 {
+                    ProgressView(value: (anchorAmount - lowerBound) / step)
+                } else {
+                    ProgressView(
+                        timerInterval: date(reaching: lowerBound) ... date(reaching: upperBound),
+                        countsDown: false
+                    ) {
+                        EmptyView()
+                    } currentValueLabel: {
+                        EmptyView()
+                    }
+                }
+            }
+            .progressViewStyle(.linear)
+            .tint(state.tint)
+            .labelsHidden()
 
-    var badgeBackground: Color {
-        switch self {
-        case .content:
-            return .green.opacity(0.14)
-        case .dynamicIsland:
-            return .green.opacity(0.22)
+            HStack {
+                Text(Money.string(lowerBound, symbol: state.currencySymbol, fractionDigits: 0...0))
+                Spacer()
+                Text(Money.string(upperBound, symbol: state.currencySymbol, fractionDigits: 0...0))
+            }
+            .font(.caption2.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(secondary)
         }
     }
 }
+
+// MARK: - Compact & minimal
+
+/// Current hourly rate in a state-colored capsule, snug against the camera.
+/// Whole units only (`$50/hr`) so it fits the compact slot, per HIG's "shortened units".
+private struct RateCapsule: View {
+    let state: SalaryTimerAttributes.ContentState
+
+    var body: some View {
+        Text("\(Money.string(state.hourlyRate.rounded(), symbol: state.currencySymbol, fractionDigits: 0...0))/hr")
+            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(state.tint, in: Capsule())
+    }
+}
+
+/// The currency symbol in a state-colored circle.
+private struct SymbolBadge: View {
+    let state: SalaryTimerAttributes.ContentState
+
+    var body: some View {
+        Text(state.currencySymbol)
+            .font(.system(size: 13, weight: .heavy, design: .rounded))
+            .foregroundStyle(.white)
+            .minimumScaleFactor(0.5)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(state.tint, in: Circle())
+    }
+}
+
+// MARK: - Previews
 
 extension SalaryTimerAttributes {
     fileprivate static var preview: SalaryTimerAttributes {
@@ -240,13 +221,43 @@ extension SalaryTimerAttributes {
     }
 }
 
-#Preview("Notification", as: .content, using: SalaryTimerAttributes.preview) {
+extension SalaryTimerAttributes.ContentState {
+    fileprivate static var previewRunning: Self {
+        Self(
+            sessionStartDate: .now.addingTimeInterval(-888),
+            amountAnchorDate: .now.addingTimeInterval(-30),
+            startingAmount: 12.35,
+            earningPerSecond: 0.0139
+        )
+    }
+
+    fileprivate static var previewPaused: Self {
+        Self(
+            sessionStartDate: .now.addingTimeInterval(-890),
+            amountAnchorDate: .now,
+            startingAmount: 12.38,
+            earningPerSecond: 0.0139,
+            pausedAt: .now
+        )
+    }
+}
+
+#Preview("Lock Screen", as: .content, using: SalaryTimerAttributes.preview) {
     SalaryTimerLiveActivity()
 } contentStates: {
-    SalaryTimerAttributes.ContentState(
-        sessionStartDate: Date().addingTimeInterval(-420),
-        amountAnchorDate: Date().addingTimeInterval(-30),
-        startingAmount: 123.45,
-        earningPerSecond: 0.0184
-    )
+    SalaryTimerAttributes.ContentState.previewRunning
+    SalaryTimerAttributes.ContentState.previewPaused
+}
+
+#Preview("Compact", as: .dynamicIsland(.compact), using: SalaryTimerAttributes.preview) {
+    SalaryTimerLiveActivity()
+} contentStates: {
+    SalaryTimerAttributes.ContentState.previewRunning
+    SalaryTimerAttributes.ContentState.previewPaused
+}
+
+#Preview("Expanded", as: .dynamicIsland(.expanded), using: SalaryTimerAttributes.preview) {
+    SalaryTimerLiveActivity()
+} contentStates: {
+    SalaryTimerAttributes.ContentState.previewRunning
 }
