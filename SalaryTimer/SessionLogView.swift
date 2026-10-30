@@ -15,40 +15,36 @@ struct SessionLogView: View {
     }
 
     @State private var segment: Segment = .all
-    @Environment(SalaryTimerStore.self) private var timerStore
 
     private let currencyCode = "USD"
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AmbientBackground(state: timerStore.state)
-                    .ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    Picker("", selection: $segment) {
-                        Text("All Records").tag(Segment.all)
-                        Text("Top 10").tag(Segment.top)
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 8)
-
-                    switch segment {
-                    case .all:
-                        AllRecordsList(currencyCode: currencyCode)
-                    case .top:
-                        TopTenList(currencyCode: currencyCode)
-                    }
+            VStack(spacing: 0) {
+                Picker("", selection: $segment) {
+                    Text("All Records").tag(Segment.all)
+                    Text("Top 10").tag(Segment.top)
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
+
+                switch segment {
+                case .all:
+                    AllRecordsList(currencyCode: currencyCode)
+                case .top:
+                    TopTenList(currencyCode: currencyCode)
+                }
+            }
+            .background {
+                ScreenBackground()
+                    .ignoresSafeArea()
             }
             .navigationTitle(segment == .all ? "All Records" : "Top 10")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
         }
-        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -58,38 +54,127 @@ private struct AllRecordsList: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \SalarySession.endDate, order: .reverse) private var sessions: [SalarySession]
 
+    /// Collapsed group ids. Collapsing only hides rows; the section and its header stay,
+    /// so the index bar keeps every entry and can still jump to a collapsed group.
+    @State private var collapsed: Set<Date> = []
+
     let currencyCode: String
 
     var body: some View {
-        let groups = SessionGrouping.byDay(sessions)
+        let groups = SessionGrouping.groups(sessions)
 
-        List {
+        VStack(spacing: 0) {
+            SummaryStrip(sessions: sessions, currencyCode: currencyCode)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 4)
+
+            List {
             ForEach(groups) { group in
                 Section {
-                    ForEach(group.sessions) { session in
-                        SessionRow(session: session, currencyCode: currencyCode)
-                            .listRowBackground(Color.white.opacity(0.08))
+                    // Always one ForEach (empty when collapsed) so the List structure stays static.
+                    ForEach(collapsed.contains(group.id) ? [] : group.sessions) { session in
+                        SessionRow(
+                            session: session,
+                            currencyCode: currencyCode,
+                            trailingText: group.kind == .day
+                                ? SessionFormatters.time(session.endDate)
+                                : SessionFormatters.monthDay.string(from: session.endDate)
+                        )
+                        .listRowBackground(RowBackground())
                     }
                     .onDelete { indices in
                         delete(at: indices, in: group)
                     }
                 } header: {
-                    Text(group.title)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(.white)
-                        .textCase(nil)
-                        .padding(.leading, -8)
+                    groupHeader(group)
+                }
+                .sectionIndexLabel(group.indexLabel)
+            }
+        }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .listSectionIndexVisibility(.visible)
+        }
+    }
+
+    private func groupHeader(_ group: SessionDayGroup) -> some View {
+        let isCollapsed = collapsed.contains(group.id)
+        return HStack(spacing: 8) {
+                Text(group.title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.primary)
+
+                Spacer(minLength: 8)
+
+                Text(group.total, format: .currency(code: currencyCode))
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.blue)
+
+                Image(systemName: "chevron.down")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.orange)
+                    .rotationEffect(.degrees(isCollapsed ? -90 : 0))
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                if isCollapsed {
+                    collapsed.remove(group.id)
+                } else {
+                    collapsed.insert(group.id)
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .textCase(nil)
+        .padding(.leading, -8)
+        .accessibilityLabel("\(group.title), \(group.total.formatted(.currency(code: currencyCode)))")
+        .accessibilityHint(isCollapsed ? "Expands this group" : "Collapses this group")
     }
 
     private func delete(at indices: IndexSet, in group: SessionDayGroup) {
         for index in indices {
             modelContext.delete(group.sessions[index])
         }
+    }
+}
+
+// MARK: - Summary
+
+private struct SummaryStrip: View {
+    let sessions: [SalarySession]
+    let currencyCode: String
+
+    var body: some View {
+        let total = sessions.reduce(0) { $0 + $1.totalEarned }
+        let seconds = sessions.reduce(0) { $0 + $1.duration }
+
+        HStack(spacing: 10) {
+            tile("Total earned", total.formatted(.currency(code: currencyCode)))
+            tile("Time metered", SessionFormatters.totalHours(seconds))
+            tile("Sessions", "\(sessions.count)")
+        }
+    }
+
+    private func tile(_ label: String, _ value: String) -> some View {
+        GroupedCard {
+            Text(label)
+                .font(.system(size: 11, weight: .bold))
+                .tracking(0.6)
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(.top, 3)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -106,12 +191,23 @@ private struct TopTenList: View {
         List {
             Section {
                 ForEach(Array(top.enumerated()), id: \.element.id) { index, session in
-                    HStack(spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
                         RankBadge(rank: index + 1)
-                        SessionRow(session: session, currencyCode: currencyCode)
+                        SessionRow(
+                            session: session,
+                            currencyCode: currencyCode,
+                            trailingText: SessionFormatters.dayOrTime(session.endDate),
+                            isPersonalBest: index == 0
+                        )
                     }
-                    .listRowBackground(Color.white.opacity(0.08))
+                    .listRowBackground(RowBackground())
                 }
+            } header: {
+                Text("Top 10 by earnings, across all sessions.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textCase(nil)
+                    .padding(.leading, -8)
             }
         }
         .listStyle(.insetGrouped)
@@ -124,91 +220,168 @@ private struct TopTenList: View {
 private struct SessionRow: View {
     let session: SalarySession
     let currencyCode: String
+    let trailingText: String
+    var isPersonalBest = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(session.totalEarned, format: .currency(code: currencyCode))
-                .font(.system(size: 28, weight: .bold, design: .default))
-                .monospacedDigit()
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(session.totalEarned, format: .currency(code: currencyCode))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
 
-            HStack(spacing: 6) {
-                Text(SessionFormatters.duration(session.duration))
-                Text("@")
-                Text(SessionFormatters.unitPrice(session.unitPrice, currencyCode: currencyCode))
+                    if isPersonalBest {
+                        Text("Personal best")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.yellow)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(.yellow.opacity(0.18), in: Capsule())
+                    }
+                }
+
+                Text("\(SessionFormatters.duration(session.duration)) • \(SessionFormatters.unitPrice(session.unitPrice, currencyCode: currencyCode))/sec")
+                    .font(.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
             }
-            .font(.subheadline)
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
+
+            Spacer(minLength: 8)
+
+            Text(trailingText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+                .lineLimit(1)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Row fill that matches `GroupedCard` in both appearances.
+private struct RowBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        colorScheme == .dark ? Color.white.opacity(0.055) : Color(.secondarySystemGroupedBackground)
     }
 }
 
 // MARK: - Rank Badge
 
+/// Numbered gold / silver / bronze medals for 1–3, plain numbers for 4–10.
 private struct RankBadge: View {
     let rank: Int
 
+    private var medalColor: Color? {
+        switch rank {
+        case 1: Color(red: 0.95, green: 0.73, blue: 0.13)
+        case 2: Color(red: 0.73, green: 0.76, blue: 0.80)
+        case 3: Color(red: 0.79, green: 0.48, blue: 0.24)
+        default: nil
+        }
+    }
+
     var body: some View {
         Group {
-            switch rank {
-            case 1:
-                Image(systemName: "medal.fill")
-                    .foregroundStyle(Color(red: 0.95, green: 0.78, blue: 0.20))
-            case 2:
-                Image(systemName: "medal.fill")
-                    .foregroundStyle(Color(red: 0.75, green: 0.75, blue: 0.78))
-            case 3:
-                Image(systemName: "medal.fill")
-                    .foregroundStyle(Color(red: 0.80, green: 0.50, blue: 0.20))
-            default:
+            if let medalColor {
+                Image(systemName: "\(rank).circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(medalColor)
+            } else {
                 Text("\(rank)")
                     .font(.headline.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
         }
-        .font(.title2)
-        .frame(width: 32, alignment: .center)
+        .frame(width: 28, alignment: .center)
+        .padding(.top, 2)
+        .accessibilityLabel("Rank \(rank)")
     }
 }
 
 // MARK: - Grouping
 
 struct SessionDayGroup: Identifiable {
+    enum Kind {
+        case day
+        case month
+    }
+
     let id: Date
+    let kind: Kind
     let title: String
+    let indexLabel: String
     let sessions: [SalarySession]
+
+    var total: Double { sessions.reduce(0) { $0 + $1.totalEarned } }
 }
 
 private enum SessionGrouping {
-    static func byDay(_ sessions: [SalarySession]) -> [SessionDayGroup] {
+    /// Days in the past 30 days get their own group; anything older is grouped by month.
+    static func groups(_ sessions: [SalarySession], now: Date = .now) -> [SessionDayGroup] {
         let calendar = Calendar.current
-        let buckets = Dictionary(grouping: sessions) { session in
-            calendar.startOfDay(for: session.endDate)
+        let today = calendar.startOfDay(for: now)
+        let dailyCutoff = calendar.date(byAdding: .day, value: -30, to: today) ?? today
+
+        var dayBuckets: [Date: [SalarySession]] = [:]
+        var monthBuckets: [Date: [SalarySession]] = [:]
+        for session in sessions {
+            let day = calendar.startOfDay(for: session.endDate)
+            if day >= dailyCutoff {
+                dayBuckets[day, default: []].append(session)
+            } else {
+                let month = calendar.dateInterval(of: .month, for: day)?.start ?? day
+                monthBuckets[month, default: []].append(session)
+            }
         }
 
-        return buckets
-            .sorted { $0.key > $1.key }
-            .map { (day, sessions) in
-                SessionDayGroup(
-                    id: day,
-                    title: title(for: day, calendar: calendar),
-                    sessions: sessions.sorted { $0.endDate > $1.endDate }
-                )
-            }
+        let days = dayBuckets.keys.sorted(by: >).map { day in
+            SessionDayGroup(
+                id: day,
+                kind: .day,
+                title: dayTitle(day, calendar: calendar),
+                indexLabel: "\(calendar.component(.day, from: day))",
+                sessions: dayBuckets[day, default: []].sorted { $0.endDate > $1.endDate }
+            )
+        }
+        let months = monthBuckets.keys.sorted(by: >).map { month in
+            SessionDayGroup(
+                id: month,
+                kind: .month,
+                title: monthTitle(month, now: now, calendar: calendar),
+                indexLabel: monthIndexLabel(month, now: now, calendar: calendar),
+                sessions: monthBuckets[month, default: []].sorted { $0.endDate > $1.endDate }
+            )
+        }
+        // Month ids can coincide with a day id (the 1st), so they're kept as separate lists.
+        return days + months
     }
 
-    private static func title(for day: Date, calendar: Calendar) -> String {
-        if calendar.isDateInToday(day) {
-            return "Today"
-        }
-        if calendar.isDateInYesterday(day) {
-            return "Yesterday"
-        }
+    private static func dayTitle(_ day: Date, calendar: Calendar) -> String {
+        if calendar.isDateInToday(day) { return "Today" }
+        if calendar.isDateInYesterday(day) { return "Yesterday" }
         return SessionFormatters.monthDay.string(from: day)
+    }
+
+    private static func monthTitle(_ month: Date, now: Date, calendar: Calendar) -> String {
+        if calendar.isDate(month, equalTo: now, toGranularity: .year) {
+            return month.formatted(.dateTime.month(.wide))
+        }
+        return month.formatted(.dateTime.month(.wide).year())
+    }
+
+    /// Short month, e.g. "Sep", or "Sep ’25" outside the current year.
+    private static func monthIndexLabel(_ month: Date, now: Date, calendar: Calendar) -> String {
+        let name = month.formatted(.dateTime.month(.abbreviated))
+        if calendar.isDate(month, equalTo: now, toGranularity: .year) {
+            return name
+        }
+        return "\(name) ’\(month.formatted(.dateTime.year(.twoDigits)))"
     }
 }
 
@@ -222,25 +395,46 @@ enum SessionFormatters {
         return formatter
     }()
 
+    /// `1h 42min`, `3min 6s`, or `45s`.
     static func duration(_ duration: TimeInterval) -> String {
-        let total = max(0, Int(duration))
+        let total = max(0, Int(duration.rounded()))
         let hours = total / 3600
         let minutes = (total % 3600) / 60
         let seconds = total % 60
 
         if hours > 0 {
-            return "\(hours)hr \(minutes)min \(seconds)s"
+            return "\(hours)h \(minutes)min"
         }
-        return "\(minutes)min \(seconds)s"
+        if minutes > 0 {
+            return "\(minutes)min \(seconds)s"
+        }
+        return "\(seconds)s"
+    }
+
+    /// Total time across records, e.g. `12h 5m`.
+    static func totalHours(_ duration: TimeInterval) -> String {
+        let total = max(0, Int(duration.rounded()))
+        return "\(total / 3600)h \((total % 3600) / 60)m"
     }
 
     static func unitPrice(_ value: Double, currencyCode: String) -> String {
-        value.formatted(.currency(code: currencyCode).precision(.fractionLength(3)))
+        value.formatted(.currency(code: currencyCode).precision(.fractionLength(4)))
+    }
+
+    static func time(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// Time for today's records, otherwise `Oct 18`.
+    static func dayOrTime(_ date: Date) -> String {
+        Calendar.current.isDateInToday(date) ? time(date) : monthDay.string(from: date)
     }
 }
 
+// Empty on purpose: Xcode Previews (iOS 27.1) crash in PreviewsInjection when a List has rows.
+// Runs fine in the real app; check populated Records on a simulator or device.
 #Preview {
     SessionLogView()
-        .environment(SalaryTimerStore())
+        .environment(SalaryTimerStore(restoresSession: false))
         .modelContainer(for: SalarySession.self, inMemory: true)
 }
