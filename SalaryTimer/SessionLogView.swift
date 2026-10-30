@@ -26,9 +26,9 @@ struct SessionLogView: View {
                     Text("Top 10").tag(Segment.top)
                 }
                 .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
+                .padding(.horizontal)
                 .padding(.top, 4)
-                .padding(.bottom, 8)
+                .padding(.bottom)
 
                 switch segment {
                 case .all:
@@ -153,7 +153,7 @@ private struct SummaryStrip: View {
 
         HStack(spacing: 10) {
             tile("Total earned", SessionFormatters.money(total))
-            tile("Time metered", SessionFormatters.totalHours(seconds))
+            tile("Total time", SessionFormatters.duration(seconds))
             tile("Sessions", "\(sessions.count)")
         }
     }
@@ -196,8 +196,7 @@ private struct TopTenList: View {
                         SessionRow(
                             session: session,
                             currencyCode: currencyCode,
-                            trailingText: SessionFormatters.dayOrTime(session.endDate),
-                            isPersonalBest: index == 0
+                            trailingText: SessionFormatters.dayOrTime(session.endDate)
                         )
                     }
                     .listRowBackground(RowBackground())
@@ -221,27 +220,15 @@ private struct SessionRow: View {
     let session: SalarySession
     let currencyCode: String
     let trailingText: String
-    var isPersonalBest = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(SessionFormatters.money(session.totalEarned))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-
-                    if isPersonalBest {
-                        Text("Personal best")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.yellow)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(.yellow.opacity(0.18), in: Capsule())
-                    }
-                }
+                Text(SessionFormatters.money(session.totalEarned))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
 
                 Text("\(SessionFormatters.duration(session.duration)) • \(SessionFormatters.unitPrice(session.unitPrice, currencyCode: currencyCode))/sec")
                     .font(.footnote)
@@ -273,7 +260,7 @@ private struct RowBackground: View {
 
 // MARK: - Rank Badge
 
-/// Numbered gold / silver / bronze medals for 1–3, plain numbers for 4–10.
+/// Gold / silver / bronze `medal.fill` for 1–3, plain numbers for 4–10.
 private struct RankBadge: View {
     let rank: Int
 
@@ -289,7 +276,7 @@ private struct RankBadge: View {
     var body: some View {
         Group {
             if let medalColor {
-                Image(systemName: "\(rank).circle.fill")
+                Image(systemName: "medal.fill")
                     .font(.title2)
                     .foregroundStyle(medalColor)
             } else {
@@ -409,12 +396,6 @@ enum SessionFormatters {
             return "\(minutes)min \(seconds)s"
         }
         return "\(seconds)s"
-    }
-
-    /// Total time across records, e.g. `12h 5m`.
-    static func totalHours(_ duration: TimeInterval) -> String {
-        let total = max(0, Int(duration.rounded()))
-        return "\(total / 3600)h \((total % 3600) / 60)m"
     }
 
     static func unitPrice(_ value: Double, currencyCode: String) -> String {

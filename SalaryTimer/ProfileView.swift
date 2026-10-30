@@ -20,6 +20,12 @@ struct ProfileView: View {
 
     @State private var showsSaved = false
     @State private var savedTask: Task<Void, Never>? = nil
+    @FocusState private var focusedField: Field?
+
+    /// Input fields, used to keep the focused one scrolled above the keyboard.
+    private enum Field: Hashable {
+        case hourlyRate, monthlyIncome, hoursPerDay, daysPerMonth, deductions
+    }
 
     private var rates: RateCalculator {
         RateCalculator(
@@ -39,6 +45,7 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     statusBanner
@@ -52,27 +59,41 @@ struct ProfileView: View {
 
                     sectionLabel("Deductions (optional)")
                     GroupedCard {
-                        fieldRow("Deductions", placeholder: "Optional", unit: "%", text: $taxRateText)
+                        fieldRow("Deductions", placeholder: "Optional", unit: "%", text: $taxRateText, field: .deductions)
                     }
                     .disabled(timerStore.isRunning)
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 16) {
                         Text("Leave blank if you don't know — we'll show your gross rate instead. Add one combined % for tax and any other withholdings only if you want a take-home estimate. It's an estimate either way: real deductions vary from paycheque to paycheque, and blank is a perfectly good answer.")
                         Text("Changing Deductions only affects upcoming sessions. Saved records keep the rate they were recorded with.")
                             .fontWeight(.semibold)
                     }
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 2)
-                    .padding(.top, 10)
-
-                    savedTag
-                        .padding(.top, 12)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
             }
             .scrollDismissesKeyboard(.interactively)
+            .onChange(of: focusedField) { _, field in
+                guard let field else { return }
+                // Wait for the keyboard to settle, then bring the field above it.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(field, anchor: .center)
+                    }
+                }
+            }
+            }
+            .overlay(alignment: .top) {
+                if showsSaved {
+                    ToastView(message: "Saved")
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
             .background {
                 ScreenBackground()
                     .ignoresSafeArea()
@@ -149,19 +170,19 @@ struct ProfileView: View {
 
             // Each mode keeps its own stored values; switching never clears the other.
             if incomeType == 0 {
-                fieldRow("Hourly Rate", placeholder: "28", unit: "$/hr", text: $hourlyRateText)
+                fieldRow("Hourly Rate", placeholder: "28", unit: "$/hr", text: $hourlyRateText, field: .hourlyRate)
             } else {
-                fieldRow("Monthly Income", placeholder: "4000", unit: "$/mo", text: $monthlyIncomeText)
+                fieldRow("Monthly Income", placeholder: "4000", unit: "$/mo", text: $monthlyIncomeText, field: .monthlyIncome)
                 Divider()
-                fieldRow("Hours / Day", placeholder: "7", unit: "hrs", text: $hoursPerDayText)
+                fieldRow("Hours / Day", placeholder: "7", unit: "hrs", text: $hoursPerDayText, field: .hoursPerDay)
                 Divider()
-                fieldRow("Days / Month", placeholder: "22", unit: "days", text: $daysPerMonthText)
+                fieldRow("Days / Month", placeholder: "22", unit: "days", text: $daysPerMonthText, field: .daysPerMonth)
             }
         }
     }
 
     /// Label on the left, a boxed editable value with its unit on the right.
-    private func fieldRow(_ title: String, placeholder: String, unit: String, text: Binding<String>) -> some View {
+    private func fieldRow(_ title: String, placeholder: String, unit: String, text: Binding<String>, field: Field) -> some View {
         HStack(spacing: 12) {
             Text(title)
                 .font(.body.weight(.medium))
@@ -169,6 +190,7 @@ struct ProfileView: View {
             Spacer(minLength: 8)
 
             TextField(placeholder, text: text)
+                .focused($focusedField, equals: field)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .font(.body.weight(.semibold))
@@ -188,6 +210,7 @@ struct ProfileView: View {
                 .frame(width: 36, alignment: .leading)
         }
         .padding(.vertical, 6)
+        .id(field)
     }
 
     // MARK: - Preview
@@ -200,7 +223,7 @@ struct ProfileView: View {
                 .font(.system(size: 11.5, weight: .bold))
                 .tracking(0.9)
                 .textCase(.uppercase)
-                .foregroundStyle(.blue)
+                .foregroundStyle(.green)
 
             Text("\(money(rates.netHourly))/hr")
                 .font(.system(size: 24, weight: .heavy, design: .rounded))
@@ -247,7 +270,7 @@ struct ProfileView: View {
         .padding(.vertical, 16)
         .background(
             LinearGradient(
-                colors: [.blue.opacity(0.22), .blue.opacity(0.07)],
+                colors: [.green.opacity(0.22), .green.opacity(0.07)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
@@ -255,7 +278,7 @@ struct ProfileView: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(.blue.opacity(0.35), lineWidth: 1)
+                .stroke(.green.opacity(0.35), lineWidth: 1)
         }
         .animation(.easeInOut(duration: 0.2), value: rates.hasDeductions)
     }
@@ -278,17 +301,9 @@ struct ProfileView: View {
 
     // MARK: - Saved
 
-    private var savedTag: some View {
-        Label("Saved", systemImage: "checkmark.circle.fill")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.green)
-            .opacity(showsSaved ? 1 : 0)
-            .accessibilityHidden(!showsSaved)
-    }
-
     private func flashSaved() {
         savedTask?.cancel()
-        withAnimation(.easeInOut(duration: 0.2)) { showsSaved = true }
+        withAnimation(.spring(duration: 0.35)) { showsSaved = true }
         savedTask = Task {
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }

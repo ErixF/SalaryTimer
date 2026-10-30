@@ -174,6 +174,23 @@ struct GroupedCard<Content: View>: View {
     }
 }
 
+/// Green-tinted glass confirmation pill, shown at the top of a screen. Taps pass through.
+struct ToastView: View {
+    let message: String
+
+    var body: some View {
+        Label(message, systemImage: "checkmark.circle.fill")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .symbolRenderingMode(.multicolor)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
+            .glassEffect(.regular.tint(.green.opacity(0.25)), in: .capsule)
+            .padding(.top, 8)
+            .allowsHitTesting(false)
+    }
+}
+
 extension Color {
     init(hex: UInt32) {
         self.init(

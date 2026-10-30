@@ -94,7 +94,7 @@ struct ContentView: View {
                 hiddenResetArea
             }
             .alert("RESET APP", isPresented: $showPopup) {
-                Button("OK", action: resetApp)
+                Button("OK") { resetApp() }
             }
         }
     }
@@ -191,7 +191,7 @@ struct ContentView: View {
                     Text("Gross \(amountText(netHourly))/hr — no deductions added")
                 }
                 if let start = timerStore.sessionStartDate {
-                    Text("Started \(start.formatted(date: .omitted, time: .shortened))")
+                    Text("Started \(start.formatted(.dateTime.hour().minute().second()))")
                 }
             }
             .font(.footnote)
@@ -311,17 +311,8 @@ struct ContentView: View {
     @ViewBuilder
     private var toast: some View {
         if let toastMessage {
-            Label(toastMessage, systemImage: "checkmark.circle.fill")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .symbolRenderingMode(.multicolor)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 11)
-                .glassEffect(.regular.tint(.green.opacity(0.25)), in: .capsule)
-                .padding(.top, 8)
+            ToastView(message: toastMessage)
                 .transition(.move(edge: .top).combined(with: .opacity))
-                // Taps pass through to whatever is underneath.
-                .allowsHitTesting(false)
         }
     }
 
@@ -471,11 +462,11 @@ private struct StateChip: View {
         .font(.system(size: 12.5, weight: .bold))
         .tracking(0.5)
         .textCase(.uppercase)
-        .foregroundStyle(tint)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
-        .background(tint.opacity(0.14), in: Capsule())
-        .overlay(Capsule().stroke(tint.opacity(0.4), lineWidth: 1))
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        // Tinted Liquid Glass so the chip reads as its own layer over the matching background.
+        .glassEffect(.regular.tint(tint.opacity(0.45)), in: .capsule)
         .animation(.easeInOut(duration: 0.2), value: state)
     }
 }
