@@ -77,6 +77,11 @@
 			path = TouchFish;
 			sourceTree = "<group>";
 		};
+		4AE132A6E48C36E8E0130878 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,6 +109,7 @@
 			children = (
 				2C14EEBE2DDD207200A39BBF /* SalaryTimer */,
 				2C7E18F02DDEF4BA00A4C834 /* TouchFish */,
+				4AE132A6E48C36E8E0130878 /* Shared */,
 				2C7E18EB2DDEF4BA00A4C834 /* Frameworks */,
 				2C14EEBD2DDD207200A39BBF /* Products */,
 			);
@@ -146,6 +152,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				2C14EEBE2DDD207200A39BBF /* SalaryTimer */,
+				4AE132A6E48C36E8E0130878 /* Shared */,
 			);
 			name = SalaryTimer;
 			packageProductDependencies = (
@@ -168,6 +175,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				2C7E18F02DDEF4BA00A4C834 /* TouchFish */,
+				4AE132A6E48C36E8E0130878 /* Shared */,
 			);
 			name = TouchFishExtension;
 			packageProductDependencies = (
@@ -310,7 +318,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -369,7 +377,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;

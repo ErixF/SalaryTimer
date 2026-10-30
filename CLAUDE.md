@@ -13,10 +13,10 @@ iOS app that meters how much you earn per second. SwiftUI, SwiftData, ActivityKi
 | `SalaryTimer/SessionLogView.swift` | Records: All Records (grouping, index bar, collapse, summary) + Top 10. `SessionFormatters` (shared formatting). |
 | `SalaryTimer/DataSet.swift` | `SalarySession` SwiftData model. |
 | `SalaryTimer/DebugSampleData.swift` | `#if DEBUG` only: ladybug menu in Records toolbar to add/remove random sample records (ids tracked in `debug.sampleRecordIDs`, so removal never touches real sessions). Use it to test Records on device. |
-| `SalaryTimerAttributes.swift` (×2) | Live Activity data. **Two copies, one per target — keep them identical** (they differ only in indentation). |
+| `Shared/` | Compiled into **both** targets (synchronized group listed in each target). `SalaryTimerAttributes` (Live Activity data, incl. `currencySymbol`, `pausedAt`), `Money` (currency formatting), `EarningsFormatStyle` (live-ticking amount). Put anything the app and widget both need here. |
 | `TouchFish/SalaryTimerLiveActivity.swift` | Lock Screen / Dynamic Island UI. |
 
-New files are picked up automatically (file-system synchronized groups). Swift 5 language mode, no default MainActor isolation.
+New files are picked up automatically (file-system synchronized groups). Swift 5 language mode, no default MainActor isolation. Both targets have a minimum of iOS 26.0.
 
 ## Core rules (decided with Eric — don't change without asking)
 
@@ -41,7 +41,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 
 ## Backlog (next rounds)
 
-- Live Activity: deeper fixes (it's minimal — frozen "PAUSED" via `pausedAt`, refreshed every 15s while running, reconciled on launch).
+- Live Activity: amount ticks via `Text(.currentDate, format: EarningsFormatStyle)`; the 15s refresh loop in `SalaryTimerStore` is a fallback until live ticking is confirmed on device, then remove it. Redesign per HIG (compact: live timer left, amount in state-colored capsule right) is Phase C.
 - iCloud sync (storage is local SwiftData + AppStorage for now).
 - Tap a record for its gross / deductions / net breakdown (data already stored for 2.3+ records).
 - Verify first-use hint fits on smallest iPhone (iPhone SE width).

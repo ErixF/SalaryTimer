@@ -127,7 +127,7 @@ private struct SalaryTimerCompactRateView: View {
     let context: ActivityViewContext<SalaryTimerAttributes>
 
     var body: some View {
-        Text(context.state.earningPerSecond, format: .currency(code: context.attributes.currencyCode))
+        Text(Money.string(context.state.earningPerSecond, symbol: context.state.currencySymbol, fractionDigits: 4...4))
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .monospacedDigit()
             .lineLimit(1)
@@ -152,7 +152,7 @@ private struct SalaryTimerMinimalView: View {
     }
 
     private var minimalText: String {
-        let amount = SalaryTimerAmountCalculator.amount(for: context.state, now: Date())
+        let amount = context.state.amount(at: Date())
 
         if amount < 100 {
             return amount.formatted(.number.precision(.fractionLength(0...1)))
@@ -167,16 +167,18 @@ private struct SalaryTimerTickerLabel: View {
     let font: Font
     let color: Color
 
-    private var amount: Double {
-        SalaryTimerAmountCalculator.amount(for: context.state, now: Date())
-    }
-
     var body: some View {
-        Text(amount, format: .currency(code: context.attributes.currencyCode))
-            .font(font)
-            .monospacedDigit()
-            .foregroundStyle(color)
-            .contentTransition(.numericText(value: amount))
+        Group {
+            if context.state.isPaused {
+                Text(Money.string(context.state.startingAmount, symbol: context.state.currencySymbol))
+            } else {
+                // Ticks every cent on its own — no app updates needed.
+                Text(.currentDate, format: context.state.earningsFormat)
+            }
+        }
+        .font(font)
+        .monospacedDigit()
+        .foregroundStyle(color)
     }
 }
 
@@ -190,7 +192,7 @@ private struct SalaryTimerRateLabel: View {
                 .font(.caption)
                 .foregroundStyle(style.secondaryText)
 
-            Text("\(context.state.earningPerSecond.formatted(.number.precision(.fractionLength(4))))/s")
+            Text("\(Money.string(context.state.earningPerSecond, symbol: context.state.currencySymbol, fractionDigits: 4...4))/s")
                 .font(.headline.monospacedDigit())
                 .foregroundStyle(style.accent)
         }
@@ -236,14 +238,6 @@ private enum SalaryTimerLiveActivityStyle {
         case .dynamicIsland:
             return .green.opacity(0.22)
         }
-    }
-}
-
-private enum SalaryTimerAmountCalculator {
-    static func amount(for state: SalaryTimerAttributes.ContentState, now: Date) -> Double {
-        let end = state.pausedAt ?? now
-        let elapsed = max(0, end.timeIntervalSince(state.amountAnchorDate))
-        return state.startingAmount + (elapsed * state.earningPerSecond)
     }
 }
 
