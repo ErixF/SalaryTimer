@@ -39,9 +39,10 @@ struct ProfileView: View {
         )
     }
 
-    /// Changes to any input trigger the "Saved" check (values auto-save via @AppStorage).
+    /// Number edits trigger the "Saved" toast (values auto-save via @AppStorage). Symbol and
+    /// income type changes don't, because their effect is visible right away.
     private var editKey: [String] {
-        ["\(incomeType)", currencySymbol, hourlyRateText, monthlyIncomeText, taxRateText, hoursPerDayText, daysPerMonthText]
+        [hourlyRateText, monthlyIncomeText, taxRateText, hoursPerDayText, daysPerMonthText]
     }
 
     var body: some View {
@@ -50,6 +51,10 @@ struct ProfileView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     statusBanner
+
+                    sectionLabel("Currency")
+                    currencyCard
+                        .disabled(timerStore.isRunning)
 
                     sectionLabel("Income")
                     incomeCard
@@ -162,29 +167,27 @@ struct ProfileView: View {
 
     // MARK: - Income
 
-    private var incomeCard: some View {
+    /// Label only — changing it relabels every amount, including saved records.
+    private var currencyCard: some View {
         GroupedCard {
-            Picker("Income Type", selection: $incomeType) {
-                Text("Hourly").tag(0)
-                Text("Monthly").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding(.bottom, 6)
-
-            // Label only — changing it relabels every amount, including saved records.
-            HStack {
-                Text("Currency Symbol")
-                    .font(.body.weight(.medium))
-                Spacer(minLength: 8)
+            menuRow("Currency Symbol") {
                 Picker("Currency Symbol", selection: $currencySymbol) {
                     ForEach(Money.symbols, id: \.self) { symbol in
                         Text(symbol).tag(symbol)
                     }
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
             }
-            .padding(.vertical, 2)
+        }
+    }
+
+    private var incomeCard: some View {
+        GroupedCard {
+            menuRow("Income Type") {
+                Picker("Income Type", selection: $incomeType) {
+                    Text("Hourly").tag(0)
+                    Text("Monthly").tag(1)
+                }
+            }
             Divider()
 
             // Each mode keeps its own stored values; switching never clears the other.
@@ -198,6 +201,19 @@ struct ProfileView: View {
                 fieldRow("Days / Month", placeholder: "22", unit: "days", text: $daysPerMonthText, field: .daysPerMonth)
             }
         }
+    }
+
+    /// Label on the left, a menu selector on the right.
+    private func menuRow<Content: View>(_ title: String, @ViewBuilder picker: () -> Content) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.body.weight(.medium))
+            Spacer(minLength: 8)
+            picker()
+                .pickerStyle(.menu)
+                .labelsHidden()
+        }
+        .padding(.vertical, 2)
     }
 
     /// Label on the left, a boxed editable value with its unit on the right.
