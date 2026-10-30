@@ -12,6 +12,7 @@ iOS app that meters how much you earn per second. SwiftUI, SwiftData, ActivityKi
 | `SalaryTimer/ProfileView.swift` | Income inputs, live rate preview card, Deductions, lock/paused banners. |
 | `SalaryTimer/SessionLogView.swift` | Records: All Records (grouping, index bar, collapse, summary) + Top 10. `SessionFormatters` (shared formatting). |
 | `SalaryTimer/DataSet.swift` | `SalarySession` SwiftData model. |
+| `SalaryTimer/DebugSampleData.swift` | `#if DEBUG` only: ladybug menu in Records toolbar to add/remove random sample records (ids tracked in `debug.sampleRecordIDs`, so removal never touches real sessions). Use it to test Records on device. |
 | `SalaryTimerAttributes.swift` (×2) | Live Activity data. **Two copies, one per target — keep them identical** (they differ only in indentation). |
 | `TouchFish/SalaryTimerLiveActivity.swift` | Lock Screen / Dynamic Island UI. |
 
