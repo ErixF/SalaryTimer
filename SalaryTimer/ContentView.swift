@@ -341,28 +341,20 @@ struct ContentView: View {
     private func landscapeLayout(width: CGFloat, now: Date) -> some View {
         Group {
             if width < 1000 {
-                ZStack {
-                    Color.black
-                        .ignoresSafeArea()
-
-                    VStack(spacing: 18) {
-                        Text(amountText(timerStore.netEarned(at: now)))
-                            .font(.system(size: 150, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .minimumScaleFactor(0.35)
-                            .lineLimit(1)
-                            .foregroundStyle(.white.opacity(0.82))
-                            .padding(.horizontal, 24)
-
-                        if width > 700 {
-                            Text(elapsedClockText(timerStore.elapsed(at: now)))
-                                .font(.system(size: 36, weight: .medium, design: .rounded))
-                                .monospacedDigit()
-                                .foregroundStyle(.white.opacity(0.82))
+                LandscapeMeter(
+                    state: state,
+                    amountText: amountText(timerStore.netEarned(at: now)),
+                    elapsedText: elapsedClockText(timerStore.elapsed(at: now)),
+                    showsElapsed: width > 700,
+                    onPrimaryAction: {
+                        // Archive & Reset lives only in portrait Paused.
+                        if state == .running {
+                            timerStore.pause()
+                        } else {
+                            timerStore.start()
                         }
                     }
-                    .padding(.horizontal, 24)
-                }
+                )
             } else {
                 Text("Go get an iPhone")
                     .font(.system(size: 72, weight: .bold, design: .rounded))
@@ -482,6 +474,129 @@ private struct StateChip: View {
         .background(tint.opacity(0.14), in: Capsule())
         .overlay(Capsule().stroke(tint.opacity(0.4), lineWidth: 1))
         .animation(.easeInOut(duration: 0.2), value: state)
+    }
+}
+
+/// Pure black landscape meter: amount and time centred, state label top-left, and a single
+/// bottom-right button (Start / Pause / Resume) revealed by tapping anywhere.
+private struct LandscapeMeter: View {
+    let state: MeterState
+    let amountText: String
+    let elapsedText: String
+    let showsElapsed: Bool
+    let onPrimaryAction: () -> Void
+
+    @State private var showsControls = true
+    @State private var hideTask: Task<Void, Never>? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let controlsVisibleDuration: Duration = .milliseconds(3500)
+
+    private var stateTitle: String {
+        switch state {
+        case .idle: "Ready"
+        case .running: "Running"
+        case .paused: "Paused"
+        }
+    }
+
+    private var buttonTitle: String {
+        switch state {
+        case .idle: "Start"
+        case .running: "Pause"
+        case .paused: "Resume"
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                Text(amountText)
+                    .font(.system(size: 150, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.35)
+                    .lineLimit(1)
+                    .foregroundStyle(.white.opacity(0.82))
+
+                if showsElapsed {
+                    Text(elapsedText)
+                        .font(.system(size: 36, weight: .medium, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.82))
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+        .overlay(alignment: .topLeading) {
+            stateLabel
+                .padding(.leading, 26)
+                .padding(.top, 22)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            primaryButton
+                .padding(.trailing, 30)
+                .padding(.bottom, 28)
+                .opacity(showsControls ? 1 : 0)
+                .allowsHitTesting(showsControls)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if showsControls {
+                hideTask?.cancel()
+                withAnimation(.easeInOut(duration: 0.3)) { showsControls = false }
+            } else {
+                revealControls()
+            }
+        }
+        .onAppear(perform: revealControls)
+        .environment(\.colorScheme, .dark)
+    }
+
+    @ViewBuilder
+    private var stateLabel: some View {
+        let label = Text(stateTitle)
+            .font(.system(size: 12.5, weight: .bold))
+            .tracking(0.8)
+            .textCase(.uppercase)
+            .foregroundStyle(state == .running ? Color.green : Color.white.opacity(0.4))
+
+        if state == .running && !reduceMotion {
+            label.phaseAnimator([1.0, 0.55]) { content, opacity in
+                content.opacity(opacity)
+            } animation: { _ in
+                .easeInOut(duration: 0.9)
+            }
+        } else {
+            label
+        }
+    }
+
+    private var primaryButton: some View {
+        Button {
+            onPrimaryAction()
+            revealControls()
+        } label: {
+            Text(buttonTitle)
+                .font(.system(size: 15, weight: .bold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+        }
+        .buttonStyle(.glass)
+        .controlSize(.large)
+    }
+
+    /// Shows the button and hides it again after a few seconds of no interaction.
+    private func revealControls() {
+        hideTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.3)) { showsControls = true }
+        hideTask = Task {
+            try? await Task.sleep(for: controlsVisibleDuration)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.3)) { showsControls = false }
+        }
     }
 }
 

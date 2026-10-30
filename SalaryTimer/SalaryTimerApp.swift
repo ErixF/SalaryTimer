@@ -22,10 +22,13 @@ struct SalaryTimerApp: App {
 }
 
 struct RootTabView: View {
-    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    /// True when the window is wider than tall, below the iPad-size cutoff the Meter uses.
+    /// Based on shape rather than size class so larger landscape screens (e.g. iPhone Duo inner
+    /// display) also hide the tab bar, while iPad keeps it so it never gets stuck.
+    @State private var isPhoneLandscape = false
 
     private var tabBarVisibility: Visibility {
-        verticalSizeClass == .compact ? .hidden : .automatic
+        isPhoneLandscape ? .hidden : .automatic
     }
 
     var body: some View {
@@ -44,6 +47,11 @@ struct RootTabView: View {
                 ProfileView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
+        }
+        .onGeometryChange(for: Bool.self) { proxy in
+            proxy.size.width > proxy.size.height && proxy.size.width < 1000
+        } action: { isLandscape in
+            isPhoneLandscape = isLandscape
         }
     }
 }
