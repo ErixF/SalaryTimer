@@ -168,14 +168,7 @@ private struct SalaryTimerTickerLabel: View {
     let color: Color
 
     var body: some View {
-        Group {
-            if context.state.isPaused {
-                Text(Money.string(context.state.startingAmount, symbol: context.state.currencySymbol))
-            } else {
-                // Ticks every cent on its own — no app updates needed.
-                Text(.currentDate, format: context.state.earningsFormat)
-            }
-        }
+        Text(Money.string(context.state.amount(at: .now), symbol: context.state.currencySymbol))
         .font(font)
         .monospacedDigit()
         .foregroundStyle(color)

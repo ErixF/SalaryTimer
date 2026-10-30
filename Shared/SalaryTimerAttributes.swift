@@ -25,17 +25,11 @@ struct SalaryTimerAttributes: ActivityAttributes {
 extension SalaryTimerAttributes.ContentState {
     var isPaused: Bool { pausedAt != nil }
 
-    /// Live-updating earnings, frozen at the pause point while paused.
-    var earningsFormat: EarningsFormatStyle {
-        EarningsFormatStyle(
-            anchorDate: amountAnchorDate,
-            startingAmount: startingAmount,
-            earningPerSecond: isPaused ? 0 : earningPerSecond,
-            symbol: currencySymbol
-        )
-    }
-
+    /// Amount at `date`, frozen at the pause point while paused. Live Activities can only tick
+    /// Apple's built-in date formats (custom FormatStyles render as placeholders), so this is
+    /// evaluated whenever the app pushes an update.
     func amount(at date: Date) -> Double {
-        earningsFormat.amount(at: date)
+        let end = pausedAt ?? date
+        return startingAmount + max(0, end.timeIntervalSince(amountAnchorDate)) * earningPerSecond
     }
 }
