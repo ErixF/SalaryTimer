@@ -25,6 +25,15 @@ struct SettingsView: View {
 
     @State private var showsSaved = false
     @State private var savedTask: Task<Void, Never>? = nil
+    @FocusState private var focusedField: Field?
+
+    /// Input fields, used to scroll the focused one clear of the keyboard and its Done button.
+    private enum Field: Hashable {
+        case hourlyRate, monthlyIncome, hoursPerDay, daysPerMonth, deductions, sessionGoal
+    }
+
+    /// Room under the last footer so it scrolls clear of the floating tab bar.
+    private let bottomScrollMargin: CGFloat = 72
 
     private var rates: RateCalculator {
         RateCalculator(
@@ -47,6 +56,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             Form {
                 statusSection
 
@@ -74,11 +84,11 @@ struct SettingsView: View {
                     .pickerStyle(.menu)
 
                     if incomeType == 0 {
-                        valueRow("Hourly Rate", placeholder: "28", unit: "\(currencySymbol)/hr", text: $hourlyRateText)
+                        valueRow("Hourly Rate", placeholder: "28", unit: "\(currencySymbol)/hr", text: $hourlyRateText, field: .hourlyRate)
                     } else {
-                        valueRow("Monthly Income", placeholder: "4000", unit: "\(currencySymbol)/mo", text: $monthlyIncomeText)
-                        valueRow("Hours / Day", placeholder: "7", unit: "hrs", text: $hoursPerDayText)
-                        valueRow("Days / Month", placeholder: "22", unit: "days", text: $daysPerMonthText)
+                        valueRow("Monthly Income", placeholder: "4000", unit: "\(currencySymbol)/mo", text: $monthlyIncomeText, field: .monthlyIncome)
+                        valueRow("Hours / Day", placeholder: "7", unit: "hrs", text: $hoursPerDayText, field: .hoursPerDay)
+                        valueRow("Days / Month", placeholder: "22", unit: "days", text: $daysPerMonthText, field: .daysPerMonth)
                     }
                 } header: {
                     Text("Income")
@@ -91,7 +101,7 @@ struct SettingsView: View {
                 rateSection
 
                 Section {
-                    valueRow("Deductions", placeholder: "Optional", unit: "%", text: $taxRateText)
+                    valueRow("Deductions", placeholder: "Optional", unit: "%", text: $taxRateText, field: .deductions)
                 } header: {
                     Text("Deductions")
                 } footer: {
@@ -101,7 +111,7 @@ struct SettingsView: View {
                 .disabled(isLocked)
 
                 Section {
-                    valueRow("Goal", placeholder: "Optional", unit: currencySymbol, text: $sessionGoalText)
+                    valueRow("Goal", placeholder: "Optional", unit: currencySymbol, text: $sessionGoalText, field: .sessionGoal)
                 } header: {
                     Text("Session Goal")
                 } footer: {
@@ -111,7 +121,20 @@ struct SettingsView: View {
                 .disabled(isLocked)
             }
             .scrollContentBackground(.hidden)
+            .contentMargins(.bottom, bottomScrollMargin, for: .scrollContent)
             .scrollDismissesKeyboard(.interactively)
+            .onChange(of: focusedField) { _, field in
+                guard let field else { return }
+                // iOS only lifts the field to just above the keyboard, where the floating Done
+                // button covers it; wait for the keyboard, then center the field instead.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(field, anchor: .center)
+                    }
+                }
+            }
+            }
             .background {
                 ScreenBackground()
                     .ignoresSafeArea()
@@ -224,10 +247,11 @@ struct SettingsView: View {
     // MARK: - Rows
 
     /// Settings-style editable row: label on the left, right-aligned value and gray unit on the right.
-    private func valueRow(_ title: String, placeholder: String, unit: String, text: Binding<String>) -> some View {
+    private func valueRow(_ title: String, placeholder: String, unit: String, text: Binding<String>, field: Field) -> some View {
         LabeledContent(title) {
             HStack(spacing: 6) {
                 TextField(placeholder, text: text)
+                    .focused($focusedField, equals: field)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
@@ -235,6 +259,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .id(field)
     }
 
     // MARK: - Saved
