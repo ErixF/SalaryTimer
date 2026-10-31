@@ -84,6 +84,8 @@ enum ProfileKeys {
     static let daysPerMonth = "profile.daysPerMonth"
     static let currencySymbol = "profile.currencySymbol"
     static let sessionGoal = "profile.sessionGoal"
+    /// iPhone Duo "Alternative Look": Settings as a sheet on wide screens and the combined Home.
+    static let alternativeLook = "display.alternativeLook"
 }
 
 /// Optional per-session earnings goal from Profile. Blank or zero means no goal.

@@ -8,11 +8,17 @@
 import SwiftUI
 import UIKit
 
-/// Settings tab, laid out like the system Settings app: a native grouped Form with
-/// label-left / value-right rows and short footers.
+/// Settings, laid out like the system Settings app: a root list of icon rows that open detail
+/// pages. On wide screens (Duo inner display, iPad) the list and the selected page sit side by
+/// side; on phones the list pushes each page.
 struct SettingsView: View {
-    /// True when shown as a sheet (regular-width layouts): inline title and an X to close.
+    /// True when shown as a sheet (Alternative Look on wide screens): adds an X to close.
     var isSheet = false
+
+    enum Pane: Hashable {
+        case currency, income, deductions, sessionGoal
+    }
+
     @AppStorage(ProfileKeys.incomeType) private var incomeType: Int = 0
     @AppStorage(ProfileKeys.hourlyRate) private var hourlyRateText: String = ""
     @AppStorage(ProfileKeys.monthlyIncome) private var monthlyIncomeText: String = ""
@@ -21,11 +27,14 @@ struct SettingsView: View {
     @AppStorage(ProfileKeys.daysPerMonth) private var daysPerMonthText: String = ""
     @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
     @AppStorage(ProfileKeys.sessionGoal) private var sessionGoalText: String = ""
+    @AppStorage(ProfileKeys.alternativeLook) private var alternativeLook = false
 
     @Environment(SalaryTimerStore.self) private var timerStore
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dismiss) private var dismiss
 
+    @State private var selection: Pane?
     @FocusState private var focusedField: Field?
 
     /// Input fields, used to scroll the focused one clear of the keyboard and its Done button.
@@ -49,12 +58,110 @@ struct SettingsView: View {
 
     private var isLocked: Bool { timerStore.isRunning }
 
-    var body: some View {
-        NavigationStack {
-            ScrollViewReader { proxy in
-            Form {
-                statusSection
+    /// Custom row fill on phones; on wide screens the sidebar keeps the system style so the
+    /// selected row shows its highlight.
+    private var rootRowBackground: RowBackground? {
+        horizontalSizeClass == .regular ? nil : RowBackground()
+    }
 
+    var body: some View {
+        NavigationSplitView {
+            rootList
+        } detail: {
+            if let selection {
+                pane(selection)
+            } else {
+                ScreenBackground().ignoresSafeArea()
+            }
+        }
+        .onAppear {
+            // Wide screens show a page next to the list, like Settings; start on the first one.
+            if horizontalSizeClass == .regular, selection == nil {
+                selection = .currency
+            }
+        }
+    }
+
+    // MARK: - Root list
+
+    private var rootList: some View {
+        List(selection: $selection) {
+            statusSection
+
+            Section {
+                paneRow(.currency, title: "Currency", symbol: "dollarsign", color: .green, value: currencySymbol)
+                paneRow(.income, title: "Income", symbol: "briefcase.fill", color: .blue, value: incomeSummary)
+            }
+            .listRowBackground(rootRowBackground)
+
+            Section {
+                paneRow(.deductions, title: "Deductions", symbol: "percent", color: .orange, value: deductionsSummary)
+                paneRow(.sessionGoal, title: "Session Goal", symbol: "flag.checkered", color: .red, value: goalSummary)
+            }
+            .listRowBackground(rootRowBackground)
+
+            Section {
+                Toggle(isOn: $alternativeLook) {
+                    Label {
+                        Text("Alternative Look")
+                    } icon: {
+                        SettingsIcon(symbol: "rectangle.split.2x1", color: .gray)
+                    }
+                }
+            } footer: {
+                Text("Applies to iPhone Duo only.")
+            }
+            .listRowBackground(rootRowBackground)
+        }
+        .scrollContentBackground(.hidden)
+        .background { ScreenBackground().ignoresSafeArea() }
+        .navigationTitle("Settings")
+        .toolbar {
+            if isSheet {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close", systemImage: "xmark") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func paneRow(_ pane: Pane, title: String, symbol: String, color: Color, value: String) -> some View {
+        NavigationLink(value: pane) {
+            LabeledContent {
+                Text(value)
+                    .monospacedDigit()
+            } label: {
+                Label {
+                    Text(title)
+                } icon: {
+                    SettingsIcon(symbol: symbol, color: color)
+                }
+            }
+        }
+    }
+
+    private var incomeSummary: String {
+        if incomeType == 0 {
+            return hourlyRateText.isEmpty ? "Not set" : "\(money(rates.hourlyRate))/hr"
+        }
+        return monthlyIncomeText.isEmpty ? "Not set" : "\(wholeMoney(rates.monthlyIncome))/mo"
+    }
+
+    private var deductionsSummary: String {
+        rates.hasDeductions ? "\(number(rates.deduction))%" : "None"
+    }
+
+    private var goalSummary: String {
+        SessionGoal.amount(from: sessionGoalText).map { wholeMoney($0) } ?? "Open"
+    }
+
+    // MARK: - Detail pages
+
+    @ViewBuilder
+    private func pane(_ pane: Pane) -> some View {
+        switch pane {
+        case .currency:
+            paneForm("Currency") {
                 Section {
                     Picker("Currency Symbol", selection: $currencySymbol) {
                         ForEach(Money.symbols, id: \.self) { symbol in
@@ -62,14 +169,14 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .listRowBackground(RowBackground())
-                } header: {
-                    Text("Currency")
                 } footer: {
                     Text("Symbol only — amounts aren't converted.")
                 }
+                .listRowBackground(RowBackground())
                 .disabled(isLocked)
-
+            }
+        case .income:
+            paneForm("Income") {
                 Section {
                     // Each type keeps its own stored values; switching never clears the other.
                     Picker("Income Type", selection: $incomeType) {
@@ -85,8 +192,6 @@ struct SettingsView: View {
                         valueRow("Hours / Day", placeholder: "7", unit: "hrs", text: $hoursPerDayText, field: .hoursPerDay)
                         valueRow("Days / Month", placeholder: "22", unit: "days", text: $daysPerMonthText, field: .daysPerMonth)
                     }
-                } header: {
-                    Text("Income")
                 } footer: {
                     Text("Changes only affect upcoming sessions.")
                 }
@@ -94,26 +199,37 @@ struct SettingsView: View {
                 .disabled(isLocked)
 
                 rateSection
-
+            }
+        case .deductions:
+            paneForm("Deductions") {
                 Section {
                     valueRow("Deductions", placeholder: "Optional", unit: "%", text: $taxRateText, field: .deductions)
-                } header: {
-                    Text("Deductions")
                 } footer: {
                     Text("One combined % for tax and withholdings. Blank shows your gross rate. Changes only affect upcoming sessions.")
                 }
                 .listRowBackground(RowBackground())
                 .disabled(isLocked)
-
+            }
+        case .sessionGoal:
+            paneForm("Session Goal") {
                 Section {
                     valueRow("Goal", placeholder: "Optional", unit: currencySymbol, text: $sessionGoalText, field: .sessionGoal)
-                } header: {
-                    Text("Session Goal")
                 } footer: {
                     Text("Shown as a progress bar on the Meter and Lock Screen. Leave blank for open goal.")
                 }
                 .listRowBackground(RowBackground())
                 .disabled(isLocked)
+            }
+        }
+    }
+
+    /// Shared page chrome: status line, navy background, keyboard handling.
+    private func paneForm<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        let sections = content()
+        return ScrollViewReader { proxy in
+            Form {
+                statusSection
+                sections
             }
             .scrollContentBackground(.hidden)
             .contentMargins(.bottom, bottomScrollMargin, for: .scrollContent)
@@ -129,29 +245,20 @@ struct SettingsView: View {
                     }
                 }
             }
-            }
-            .background {
-                ScreenBackground()
-                    .ignoresSafeArea()
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(isSheet ? .inline : .large)
-            .toolbar {
-                if isSheet {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Close", systemImage: "xmark") { dismiss() }
-                    }
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
-                        UIApplication.shared.sendAction(
-                            #selector(UIResponder.resignFirstResponder),
-                            to: nil,
-                            from: nil,
-                            for: nil
-                        )
-                    }
+        }
+        .background { ScreenBackground().ignoresSafeArea() }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil,
+                        from: nil,
+                        for: nil
+                    )
                 }
             }
         }
@@ -264,6 +371,20 @@ struct SettingsView: View {
 
     private func number(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+}
+
+/// White SF Symbol on a colored rounded square, like the icons in the Settings app.
+private struct SettingsIcon: View {
+    let symbol: String
+    let color: Color
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 29, height: 29)
+            .background(color.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }
 

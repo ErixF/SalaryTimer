@@ -29,12 +29,14 @@ struct RootTabView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
+    @AppStorage(ProfileKeys.alternativeLook) private var alternativeLook = false
+
     @State private var selection: AppTab = .meter
     @State private var showsSettingsSheet = false
 
-    /// Regular width (Duo inner display, iPad) shows Settings as a sheet over the current tab;
-    /// compact width (regular iPhones, Duo outer display) keeps it as a normal tab page.
-    private var settingsIsSheet: Bool { horizontalSizeClass == .regular }
+    /// With Alternative Look on, regular width (Duo inner display, iPad) shows Settings as a sheet
+    /// over the current tab. Otherwise, and on compact width, Settings is a normal tab page.
+    private var settingsIsSheet: Bool { alternativeLook && horizontalSizeClass == .regular }
 
     private var tabBarVisibility: Visibility {
         // Hidden only behind the black landscape meter (phone landscape, Duo outer landscape).
@@ -64,7 +66,17 @@ struct RootTabView: View {
             selection = previous
             showsSettingsSheet = true
         }
-        .onChange(of: horizontalSizeClass) {
+        .onChange(of: horizontalSizeClass) { syncSettingsPresentation() }
+        .onChange(of: alternativeLook) { syncSettingsPresentation() }
+        .sheet(isPresented: $showsSettingsSheet) {
+            SettingsView(isSheet: true)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    /// Keeps Settings open across fold/unfold and Alternative Look changes, swapping page ↔ sheet.
+    private func syncSettingsPresentation() {
             if settingsIsSheet, selection == .settings {
                 // Unfolding while on the Settings page: keep Settings open, but as a sheet.
                 selection = .meter
@@ -74,12 +86,6 @@ struct RootTabView: View {
                 showsSettingsSheet = false
                 selection = .settings
             }
-        }
-        .sheet(isPresented: $showsSettingsSheet) {
-            SettingsView(isSheet: true)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
     }
 }
 

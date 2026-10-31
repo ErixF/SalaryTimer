@@ -43,7 +43,7 @@ struct ContentView: View {
     /// Minimum gap between the top screen edge and the state chip when there's no status bar above it.
     private let minimumTopClearance: CGFloat = 32
     /// Gap between the hero and the info cards when the column is centered (side-bar layouts).
-    private let sideBarHeroGap: CGFloat = 40
+    private let sideBarHeroGap: CGFloat = 56
     private let toastDuration: Duration = .milliseconds(2600)
     private let titleOptions = [
         "Getting Paid to Exist",
