@@ -65,10 +65,15 @@ struct RootTabView: View {
             showsSettingsSheet = true
         }
         .onChange(of: horizontalSizeClass) {
-            // Unfolding while on the Settings page: keep Settings open, but as a sheet.
-            guard settingsIsSheet, selection == .settings else { return }
-            selection = .meter
-            showsSettingsSheet = true
+            if settingsIsSheet, selection == .settings {
+                // Unfolding while on the Settings page: keep Settings open, but as a sheet.
+                selection = .meter
+                showsSettingsSheet = true
+            } else if !settingsIsSheet, showsSettingsSheet {
+                // Folding while the Settings sheet is open: keep Settings open, but as a page.
+                showsSettingsSheet = false
+                selection = .settings
+            }
         }
         .sheet(isPresented: $showsSettingsSheet) {
             SettingsView(isSheet: true)
