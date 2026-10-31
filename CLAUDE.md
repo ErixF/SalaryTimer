@@ -71,7 +71,8 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Settings round (done):** Profile → Settings (gear), Settings-app style `Form`, no Saved toast.
 - **Polish round (done):** Records index-bar clearance, cards above the list with a top fade (All Records and Top 10) while rows still scroll under the tab bar, Top 10 note as footer; state-colored landscape label/button and amber Pause; Hidden Tools sheet (first-use toggle, sample data, reset) replaces the ladybug menu and reset alert.
 - **iPhone Duo round (done):** min iOS 27.1, size-class black view, Hidden Tools on the amount, side-bar actions, centered side-bar Meter, wide portrait sizing, fold-aware portrait/landscape Meter and Records, Apple-style split Settings everywhere, Alternative Look toggle (Settings sheet + combined Home). See the iPhone Duo section.
-- **Duo adjustments (done, branch `duo-adjustments`):** Records rows keep rounded corners beside the index; Home swapped (Records ⅓ left, Meter right) with no menu and a side-bar Settings gear; Settings reopens on its root after leaving the tab.
+- **Duo adjustments (done, merged):** Records rows keep rounded corners beside the index; Home swapped (Records ⅓ left, Meter right) with no menu and a side-bar Settings gear; Settings reopens on its root after leaving the tab.
+- **Release prep (in progress, branch `release-3.0`):** version 3.0 (1), Touch Fish naming, privacy manifest, export compliance key. See the Release 3.0 section.
 
 ## iPhone Duo (done 2026-10-31, branch `iphone-duo`)
 
@@ -105,12 +106,45 @@ Apple guidance: memory `iphone-duo-guidelines` (HIG + dev page; read via the JSO
 4. For fold work, a temporary `#if DEBUG` readout of `geo.reservedRegions(kind: .division)` frames is the fastest way to confirm detection (used and removed in this round; values seen: portrait band y373 h40, landscape band x455 w40).
 5. Check each pose in Idle / Running / Paused, light and dark, with Alternative Look on and off.
 
+## Release 3.0 (in progress, branch `release-3.0`)
+
+First ever App Store / TestFlight release. Eric bought the Apple Developer Program (Individual) on 2026-10-31 and is waiting for approval. Nothing has been uploaded yet.
+
+### Done in code
+| What | Where | Notes |
+|---|---|---|
+| Version **3.0**, build **1** | Build settings `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`, app **and** widget (must match) | Bump the build number (2, 3, …) for every new upload of 3.0; App Store Connect rejects a repeated number. |
+| Home Screen name **Touch Fish** | App `INFOPLIST_KEY_CFBundleDisplayName` | Was "Salary Timer". |
+| Extension display name **Touch Fish Meter** | Widget `INFOPLIST_KEY_CFBundleDisplayName` | Only visible in system lists. |
+| Privacy manifest | `SalaryTimer/PrivacyInfo.xcprivacy` | No tracking, no collected data; declares UserDefaults (AppStorage + `meter.*`) with reason `CA92.1`. The widget doesn't use UserDefaults, so it has none. Add entries if a new required-reason API is used (file timestamps, disk space, system boot time). |
+| Export compliance | App `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` | No custom encryption, so TestFlight doesn't ask each upload. |
+
+### Naming (decided)
+- App Store **Name:** `Touch Fish`, **Subtitle:** `Meter Your Free Money` (both set in App Store Connect, 30-char limit each; "Touch Fish - Meter Your Free Money" is 34 so it can't be the name). Backup if the name is taken: `Touch Fish: Meter Free Money`.
+- **Unchanged on purpose:** bundle IDs `tech.SalaryTimer` / `tech.SalaryTimer.TouchFish` (invisible, permanent once on the store), Xcode project/target/scheme names `SalaryTimer` / `TouchFish` (renaming risks signing, users never see them).
+
+### Remaining steps (walk Eric through them; it's his first release)
+1. **Approval** email ("Welcome to the Apple Developer Program"), same Apple ID as Xcode.
+2. **Xcode → Settings → Accounts:** team shows "(Individual)", not "Personal Team". In Signing & Capabilities for **SalaryTimer** and **TouchFishExtension**: automatic signing, paid team. If `DEVELOPMENT_TEAM` (`KWFBN78X3K`) changes, commit the pbxproj change.
+3. **App Store Connect → Apps → + New App:** iOS, name/subtitle above, English, bundle ID `tech.SalaryTimer` (if missing, run once on device from Xcode to register it), SKU e.g. `salarytimer-001`, Full access.
+4. **Archive:** destination **Any iOS Device (arm64)** → Product → Archive → Organizer → Distribute App → App Store Connect → Upload.
+5. **Processing** 5–30 min, then the build shows in the TestFlight tab.
+6. **Internal testing:** create a group, add Eric, add the build, install via the TestFlight app (no review needed). TestFlight replaces the Xcode-installed copy; data normally survives but screenshot totals first.
+7. **External testing (optional):** beta description, feedback email, one-time Beta App Review (~1 day). Testers need iOS 27.1+.
+8. Before App Store submission (later): App Privacy questionnaire = "Data Not Collected", screenshots, description, privacy policy URL, support URL.
+
+### Waiting on Eric
+- Approval; screenshot of any signing error in step 2.
+- Whether Carl gets TestFlight / App Store Connect access (Users and Access first).
+- OK to merge `release-3.0` → `main` and push.
+- Device pass on the TestFlight build: Live Activity (Lock Screen + Dynamic Island), kill mid-session and relaunch, light/dark, large Dynamic Type, first-use hint on the smallest iPhone.
+
 ## Backlog (next rounds)
 
 - Tap a record for its gross / deductions / net breakdown (data already stored for 2.3+ records).
 - iCloud sync (storage is local SwiftData + AppStorage). Needs model defaults, no unique `id`, and a plan for settings and running sessions across devices — its own round.
 - Verify first-use hint fits on smallest iPhone (iPhone SE width).
-- Release prep for 2.3: version/build bump, full device pass, archive for TestFlight.
+- Release 3.0 to TestFlight: see the Release section (waiting on Developer Program approval).
 
 ## Working with Eric
 

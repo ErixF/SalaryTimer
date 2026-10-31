@@ -400,7 +400,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SalaryTimer/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Salary Timer";
+				INFOPLIST_KEY_CFBundleDisplayName = "Touch Fish";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
@@ -435,7 +435,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SalaryTimer/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Salary Timer";
+				INFOPLIST_KEY_CFBundleDisplayName = "Touch Fish";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
@@ -468,7 +468,7 @@
 				DEVELOPMENT_TEAM = KWFBN78X3K;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TouchFish/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = TouchFish;
+				INFOPLIST_KEY_CFBundleDisplayName = "Touch Fish Meter";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -495,7 +495,7 @@
 				DEVELOPMENT_TEAM = KWFBN78X3K;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TouchFish/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = TouchFish;
+				INFOPLIST_KEY_CFBundleDisplayName = "Touch Fish Meter";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
