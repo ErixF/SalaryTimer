@@ -116,7 +116,7 @@ Design references (Eric's Figma exports, reference only — find alignment yours
 - [ ] **7. Default-mode inner landscape folded** — Meter: hero left half | info right half, buttons stay in the right side bar. Records: All Records left | Top 10 right.
 - [ ] **8. Alternative Look: inner landscape Home** — Meter ⅔ + Records ⅓, Home / Settings menu, Records → Home mapping.
 - [ ] **9. Alternative Look: inner landscape folded** — `ArrangementView` split halves (Meter + buttons below | Records).
-- [ ] **10. Polish** — light/dark, Dynamic Type, Running/Paused in every pose; simulator testing guide; update rules and move this round to Progress.
+- [ ] **10. Polish** — remove the `#if DEBUG` `FoldDebugReadout` (red fold diagnostics on the Meter); light/dark, Dynamic Type, Running/Paused in every pose; simulator testing guide; update rules and move this round to Progress.
 
 ## Backlog (next rounds)
 
