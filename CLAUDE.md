@@ -95,7 +95,8 @@ Design references (Eric's Figma exports, reference only — find alignment yours
 - **Pose changes (Alternative Look ON)**: Records → Home when the menu becomes Home / Settings.
 - Running/Paused use the same layouts with existing state colors and buttons. Paused side-bar actions are icon-only (▶ Resume, archivebox Archive & Reset); fallback = buttons in a bottom row if Eric dislikes them.
 - No physical iPhone Duo: test in the iPhone Duo simulator. **Xcode Previews don't render Duo side bars** — side-bar layouts must be checked in the simulator.
-- **Open questions (asked 2026-10-31):** (1) regular iPhones also get the Apple-style Settings? (recommended yes); (2) show the Alternative Look toggle on regular iPhones with an "applies to large displays" note? (recommended yes); (3) default-mode inner landscape folded = hero left / info right? (4) Settings row icons: Currency `dollarsign` green, Income `briefcase.fill` blue, Deductions `percent` orange, Session Goal `flag.checkered` red, Alternative Look `rectangle.split.2x1` gray.
+- **Answered 2026-10-31:** (1) regular iPhones also get the Apple-style Settings; (2) Alternative Look toggle shown everywhere with footer "Applies to iPhone Duo only"; (3) default-mode inner landscape folded = hero on the left half, info on the right half, **buttons in the right-hand vertical side bar**; (4) icons: Currency `dollarsign` green, Income `briefcase.fill` blue, Deductions `percent` orange, Session Goal `flag.checkered` red, Alternative Look `rectangle.split.2x1` gray (can change later).
+- **Records, default look, inner landscape folded:** All Records list on the left half, Top 10 on the right half (hinge clear; no segmented control needed there).
 
 ### API notes (verified against the iOS 27.1 SDK)
 - `ArrangementView { } secondary: { }` + `.arrangementViewStyle(.split.axes(...))` — **iOS 27.1**.
@@ -109,10 +110,10 @@ Design references (Eric's Figma exports, reference only — find alignment yours
 - [x] **1. Foundation** — min iOS 27.1; black view only for vertical-compact (also tab-bar hiding); "Go get an iPhone" removed; Hidden Tools = 10 taps on the amount, X to close. Meter adds top clearance when the top safe area is ~0 (Duo outer).
 - [x] **2. Settings as a sheet (regular width)** — `RootTabView` `AppTab` selection interception, `SettingsView(isSheet:)` with X + detents, fold/unfold swaps sheet ↔ page. **To be gated behind Alternative Look ON in phase 5.**
 - [x] **3. Side-bar actions** — `VerticalBarProbe` (`toolbarVerticalEdge`) → `barsOnSide`; actions become `.primaryAction` toolbar items (Start blue, Pause amber, Resume green `.glassProminent`; Archive & Reset glass), in-content buttons hidden, first-use hint under the info. Verified in simulator (outer portrait + inner landscape).
-- [ ] **4. Meter centering** — side-bar layouts: center the column vertically with a moderate hero↔info gap (replace the top/bottom pinning Spacer).
+- [x] **4. Meter centering** (done: when `barsOnSide`, Spacers above and below the column center it; hero↔info gap `sideBarHeroGap` = 40pt) — side-bar layouts: center the column vertically with a moderate hero↔info gap (replace the top/bottom pinning Spacer).
 - [ ] **5. Settings redesign + Alternative Look toggle** — Apple-style root list + detail pages (`NavigationSplitView`), value on each row, toggle row; gate the Phase 2 sheet behavior on the toggle.
 - [ ] **6. Inner portrait (flat + folded)** — both modes: scaled layout, bottom tab bar; when folded, read the horizontal `reservedRegions(kind: .division)` and push hero up / info + button down.
-- [ ] **7. Default-mode inner landscape folded** — split the Meter around the fold (pending answer to open question 3).
+- [ ] **7. Default-mode inner landscape folded** — Meter: hero left half | info right half, buttons stay in the right side bar. Records: All Records left | Top 10 right.
 - [ ] **8. Alternative Look: inner landscape Home** — Meter ⅔ + Records ⅓, Home / Settings menu, Records → Home mapping.
 - [ ] **9. Alternative Look: inner landscape folded** — `ArrangementView` split halves (Meter + buttons below | Records).
 - [ ] **10. Polish** — light/dark, Dynamic Type, Running/Paused in every pose; simulator testing guide; update rules and move this round to Progress.

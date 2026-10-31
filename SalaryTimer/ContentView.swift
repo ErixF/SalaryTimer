@@ -42,6 +42,8 @@ struct ContentView: View {
     private let hintSlotHeight: CGFloat = 34
     /// Minimum gap between the top screen edge and the state chip when there's no status bar above it.
     private let minimumTopClearance: CGFloat = 32
+    /// Gap between the hero and the info cards when the column is centered (side-bar layouts).
+    private let sideBarHeroGap: CGFloat = 40
     private let toastDuration: Duration = .milliseconds(2600)
     private let titleOptions = [
         "Getting Paid to Exist",
@@ -118,6 +120,11 @@ struct ContentView: View {
     private func portraitLayout(now: Date, height: CGFloat, topInset: CGFloat) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
+                // Side-bar layouts center the whole column so the middle isn't hollow.
+                if barsOnSide {
+                    Spacer(minLength: 0)
+                }
+
                 VStack(spacing: 12) {
                     StateChip(state: state)
                     screenTitle
@@ -126,13 +133,8 @@ struct ContentView: View {
                 heroSection(now: now)
                     .padding(.top, 22)
 
-                // Side-bar layout: hero block at the top, info block pinned to the bottom.
-                if barsOnSide {
-                    Spacer(minLength: 24)
-                }
-
                 detailCard(now: now)
-                    .padding(.top, 18)
+                    .padding(.top, barsOnSide ? sideBarHeroGap : 18)
 
                 statsRow
                     .padding(.top, 18)
@@ -153,6 +155,7 @@ struct ContentView: View {
                         firstUseHint
                             .padding(.top, 12)
                     }
+                    Spacer(minLength: 0)
                 } else {
                     Spacer(minLength: 18)
 
