@@ -484,7 +484,7 @@ private struct StateChip: View {
 }
 
 /// Opened by 10 quick taps on the hidden top-right area. Testing tools are debug-only;
-/// Reset App is always available.
+/// Reset App is always available. Stays open until Done.
 private struct HiddenToolsSheet: View {
     @Binding var hasArchived: Bool
     let onResetApp: () -> Void
@@ -492,19 +492,26 @@ private struct HiddenToolsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var confirmsReset = false
+    /// Last action taken, shown at the top since the sheet stays open until Done.
+    @State private var confirmation: String?
 
     var body: some View {
         NavigationStack {
             List {
+                if let confirmation {
+                    Label(confirmation, systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                }
+
                 #if DEBUG
                 Section {
                     Button("Show First-Use Hint", systemImage: "lightbulb") {
                         hasArchived = false
-                        dismiss()
+                        confirmation = "First-use hint will show on next pause"
                     }
                     Button("Mark as Returning User", systemImage: "person.crop.circle.badge.checkmark") {
                         hasArchived = true
-                        dismiss()
+                        confirmation = "Marked as returning user"
                     }
                 } header: {
                     Text("First Use")
@@ -515,11 +522,11 @@ private struct HiddenToolsSheet: View {
                 Section {
                     Button("Add Sample Records", systemImage: "plus.rectangle.on.rectangle") {
                         DebugSampleData.insert(into: modelContext)
-                        dismiss()
+                        confirmation = "Sample records added"
                     }
                     Button("Remove Sample Records", systemImage: "minus.rectangle", role: .destructive) {
                         DebugSampleData.remove(from: modelContext)
-                        dismiss()
+                        confirmation = "Sample records removed"
                     }
                 } header: {
                     Text("Sample Data")
@@ -547,13 +554,15 @@ private struct HiddenToolsSheet: View {
                 Button("Cancel", role: .cancel) {}
                 Button("Reset", role: .destructive) {
                     onResetApp()
-                    dismiss()
+                    confirmation = "App reset"
                 }
             } message: {
                 Text("Settings will be cleared. Records are kept.")
             }
         }
         .presentationDetents([.medium, .large])
+        // Only Done closes it: extra fast taps on the dimmed area or a swipe won't dismiss.
+        .interactiveDismissDisabled()
     }
 }
 
