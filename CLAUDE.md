@@ -71,6 +71,43 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Settings round (done):** Profile → Settings (gear), Settings-app style `Form`, no Saved toast.
 - **Polish round (done):** Records index-bar clearance, cards above the list with a top fade (All Records and Top 10) while rows still scroll under the tab bar, Top 10 note as footer; state-colored landscape label/button and amber Pause; Hidden Tools sheet (first-use toggle, sample data, reset) replaces the ladybug menu and reset alert.
 
+## Current round: iPhone Duo (IN PROGRESS — branch `iphone-duo`)
+
+Design references (Eric's Figma exports, reference only — find alignment yourself, never measure pixels): `~/Downloads/Meter-outer-Portrait.png`, `Meter-outer-Portrait-fallback.png`, `Meter-outer-lanscape and standby.png`, `Meter-Inner-portrait.png`, `Meter-Inner-portrait-folded.png`, `Meter-inner-landscape.png`, `Meter-inner-landscape-folded.png`, `settings and hidden tools-portrait-outer.png`, `settings-inner-landscape.png`, `settings-inner-portrait-folded.png`, `Figma Tall Capsule.png`. Apple guidance: see memory `iphone-duo-guidelines` (HIG + dev page, read via JSON endpoint).
+
+### Decisions (agreed with Eric, 2026-10-31)
+| Pose | Layout | Menu | Action buttons |
+|---|---|---|---|
+| Outer portrait | Hero block (chip, title, timer, amount, rate) top; info block (detail, tiles, goal) bottom, filling the screen | System side bar: Meter / Records / Settings | In the side bar above the menu (Apple "Buttons – 48pt", Symbol, vertical axis; try tall 164pt capsule, else native size). Paused = two icon-only buttons (▶ Resume, archivebox Archive & Reset). If side buttons don't work for Eric → **fallback**: buttons in a row at the bottom of content, and Idle/Running use the same bottom placement |
+| Outer landscape | Existing black minimal meter (unchanged; tap shows/hides button) | Hidden | Bottom-right, as now |
+| Inner portrait | Bigger normal-iPhone layout | Bottom tab bar, 3 items | Wide button at bottom |
+| Inner portrait, folded | Chip + title stay; timer/amount/rate move up, info + button move down to clear the fold | Bottom tab bar, 3 items | Bottom |
+| Inner landscape | **Home** = Meter left ⅔ + Records right ⅓ (add padding under the goal card) | Side bar: **Home / Settings** (2 items) | Side bar, above the menu |
+| Inner landscape, folded | Meter left half, Records right half (fold clear) | Home / Settings (system places it) | Under the Meter, not on the side |
+- **Settings is always a sheet** (every device and pose): tapping the Settings menu item presents a sheet (X button, grabber, medium→large detents, swipe down or tap outside to close) instead of switching tabs; the previous tab stays selected.
+- **Hidden Tools**: trigger moves to **10 quick taps on the big amount** on every device and layout, **except the black landscape view** (its single tap still shows/hides the button). Remove the invisible top-right corner area. Sheet closes **only via an X** button (keep `interactiveDismissDisabled`).
+- **Wide screens**: remove "Go get an iPhone". The black landscape view is only for `verticalSizeClass == .compact` (phones in landscape, Duo outer landscape). iPad gets the inner-display layouts.
+- **Pose changes**: when switching from 3 items to Home/Settings, Records → Home (Home already shows Records). Settings sheet stays open across changes.
+- Running/Paused use the same layouts with existing state colors and buttons. Outer landscape image's "StandBy" label is just the outer landscape meter (StandBy itself shows the Live Activity).
+- No physical iPhone Duo: test in the **iPhone Duo simulator** (poses via Device Hub) and Xcode Previews (`Display: Inner/Outer`, `Orientation`; previews can't fold).
+
+### API notes (verified against the iOS 27.1 SDK)
+- `ArrangementView { } secondary: { }` + `.arrangementViewStyle(.split.axes(...))` — **iOS 27.1**.
+- `GeometryProxy.reservedRegions(kind: .division)` (fold) — **iOS 27.1**; also occlusions (camera).
+- `@Environment(\.toolbarVerticalEdge)` — **iOS 27.1** (non-nil when bars are on the side).
+- `ToolbarItemVisibilityPriority` — **iOS 27.0**.
+- App minimum stays **iOS 26.0**: wrap all Duo-specific code in `if #available(iOS 27.1, *)`; iOS 26 devices keep the current layouts.
+- Size classes: outer = compact width; inner = regular width. Use scene/container geometry, never `userInterfaceIdiom` or screen size.
+
+### Phases (one per turn; build + preview check + commit on `iphone-duo`)
+- [ ] **1. Foundation** — `LayoutMode` resolver (size classes + width vs height + fold from reserved regions): `.phoneLandscape` (black), `.compact` (phone/outer portrait), `.regularPortrait`, `.regularLandscape`, each with `isFolded`. Black view only for vertical-compact; delete "Go get an iPhone" and the 1000pt rule (also in `RootTabView` tab-bar hiding). Split `ContentView` portrait into reusable `MeterHero`, `MeterInfo`, `MeterActions` views. Hidden Tools trigger → 10 taps on the amount (not in black view); remove corner area; Hidden Tools gets an X button.
+- [ ] **2. Settings as a sheet** — tab-selection interception (3-item and 2-item menus) presents `SettingsView` in a sheet with X, detents, tap-outside dismiss; keep the previous tab selected.
+- [ ] **3. Outer portrait** — hero top / info bottom filling the screen; action buttons as toolbar items in the side bar (`toolbarVerticalEdge` non-nil), try the tall capsule; Paused = two icon buttons. Keep a `useBottomActions` switch for the fallback.
+- [ ] **4. Inner portrait (flat + folded)** — scaled-up layout, bottom tab bar, wide bottom button; when folded, read the horizontal division and push hero up / info down around it.
+- [ ] **5. Inner landscape Home** — Meter ⅔ + Records ⅓, menu becomes Home / Settings, side-bar actions, Records→Home mapping on pose change.
+- [ ] **6. Inner landscape folded** — `ArrangementView` split halves (Meter + actions below | Records), fold clear.
+- [ ] **7. Polish** — light/dark, Dynamic Type, Running/Paused passes in every pose; write the simulator testing guide here; update rules sections above and move this round to Progress.
+
 ## Backlog (next rounds)
 
 - Tap a record for its gross / deductions / net breakdown (data already stored for 2.3+ records).
