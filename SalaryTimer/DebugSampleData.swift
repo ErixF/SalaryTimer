@@ -70,21 +70,4 @@ enum DebugSampleData {
     }
 }
 
-/// Toolbar menu shown only in debug builds.
-struct DebugSampleDataMenu: View {
-    @Environment(\.modelContext) private var modelContext
-
-    var body: some View {
-        Menu {
-            Button("Add Sample Records", systemImage: "plus") {
-                DebugSampleData.insert(into: modelContext)
-            }
-            Button("Remove Sample Records", systemImage: "trash", role: .destructive) {
-                DebugSampleData.remove(from: modelContext)
-            }
-        } label: {
-            Label("Debug", systemImage: "ladybug")
-        }
-    }
-}
 #endif

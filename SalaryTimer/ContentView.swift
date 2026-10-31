@@ -23,7 +23,7 @@ struct ContentView: View {
     @AppStorage("meter.hasArchived") private var hasArchived = false
 
     // MARK: - Local UI state
-    @State private var showPopup = false
+    @State private var showsHiddenTools = false
     @State private var resetTapCount = 0
     @State private var lastResetTapDate: Date? = nil
     @State private var titleIndex = 0
@@ -95,8 +95,8 @@ struct ContentView: View {
             .overlay(alignment: .topTrailing) {
                 hiddenResetArea
             }
-            .alert("RESET APP", isPresented: $showPopup) {
-                Button("OK") { resetApp() }
+            .sheet(isPresented: $showsHiddenTools) {
+                HiddenToolsSheet(hasArchived: $hasArchived, onResetApp: { resetApp() })
             }
         }
     }
@@ -394,7 +394,7 @@ struct ContentView: View {
 
     // MARK: - Hidden reset
 
-    /// Invisible tap target in the top-right corner. 10 quick taps open the reset alert.
+    /// Invisible tap target in the top-right corner. 10 quick taps open Hidden Tools.
     private var hiddenResetArea: some View {
         Color.clear
             .frame(width: hiddenResetAreaSize, height: hiddenResetAreaSize)
@@ -416,7 +416,7 @@ struct ContentView: View {
         if resetTapCount >= 10 {
             resetTapCount = 0
             lastResetTapDate = nil
-            showPopup = true
+            showsHiddenTools = true
         }
     }
 
@@ -480,6 +480,80 @@ private struct StateChip: View {
         // Tinted Liquid Glass so the chip reads as its own layer over the matching background.
         .glassEffect(.regular.tint(tint.opacity(0.45)), in: .capsule)
         .animation(.easeInOut(duration: 0.2), value: state)
+    }
+}
+
+/// Opened by 10 quick taps on the hidden top-right area. Testing tools are debug-only;
+/// Reset App is always available.
+private struct HiddenToolsSheet: View {
+    @Binding var hasArchived: Bool
+    let onResetApp: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmsReset = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                #if DEBUG
+                Section {
+                    Button("Show First-Use Hint", systemImage: "lightbulb") {
+                        hasArchived = false
+                        dismiss()
+                    }
+                    Button("Mark as Returning User", systemImage: "person.crop.circle.badge.checkmark") {
+                        hasArchived = true
+                        dismiss()
+                    }
+                } header: {
+                    Text("First Use")
+                } footer: {
+                    Text("A first-time user sees the hint when pausing, until their first Archive & Reset.")
+                }
+
+                Section {
+                    Button("Add Sample Records", systemImage: "plus.rectangle.on.rectangle") {
+                        DebugSampleData.insert(into: modelContext)
+                        dismiss()
+                    }
+                    Button("Remove Sample Records", systemImage: "minus.rectangle", role: .destructive) {
+                        DebugSampleData.remove(from: modelContext)
+                        dismiss()
+                    }
+                } header: {
+                    Text("Sample Data")
+                } footer: {
+                    Text("Removing only deletes sample records, never real sessions.")
+                }
+                #endif
+
+                Section {
+                    Button("Reset App", systemImage: "arrow.counterclockwise", role: .destructive) {
+                        confirmsReset = true
+                    }
+                } footer: {
+                    Text("Saves any metered time to Records, resets the meter, and clears all settings.")
+                }
+            }
+            .navigationTitle("Hidden Tools")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .alert("Reset the app?", isPresented: $confirmsReset) {
+                Button("Cancel", role: .cancel) {}
+                Button("Reset", role: .destructive) {
+                    onResetApp()
+                    dismiss()
+                }
+            } message: {
+                Text("Settings will be cleared. Records are kept.")
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

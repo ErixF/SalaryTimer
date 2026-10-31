@@ -44,13 +44,6 @@ struct SessionLogView: View {
             .navigationTitle(segment == .all ? "All Records" : "Top 10")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
-            #if DEBUG
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    DebugSampleDataMenu()
-                }
-            }
-            #endif
         }
     }
 }
@@ -239,6 +232,8 @@ private extension View {
                         .frame(height: height)
                     Color.black
                 }
+                // Extend past the bottom edge so rows keep scrolling under the tab bar.
+                .padding(.bottom, -200)
             }
     }
 }
