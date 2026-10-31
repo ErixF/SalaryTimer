@@ -16,13 +16,16 @@ struct SessionLogView: View {
 
     @State private var segment: Segment = .all
 
+    /// Minimum gap between the top screen edge and the pane headers when the nav bar is hidden.
+    private let minimumTopClearance: CGFloat = 32
+
     @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
 
     var body: some View {
         NavigationStack {
             GeometryReader { geo in
                 if let fold = geo.verticalFold {
-                    foldedLayout(size: geo.size, fold: fold)
+                    foldedLayout(size: geo.size, fold: fold, topInset: geo.safeAreaInsets.top)
                 } else {
                     segmentedLayout
                 }
@@ -59,8 +62,10 @@ struct SessionLogView: View {
 
     /// Half-open inner display in landscape: All Records on the left half, Top 10 on the right,
     /// the fold clear between them. No segmented control needed.
-    private func foldedLayout(size: CGSize, fold: CGRect) -> some View {
+    private func foldedLayout(size: CGSize, fold: CGRect, topInset: CGFloat) -> some View {
         let clearance: CGFloat = 16
+        // The nav bar is hidden here, so give the headers their own room below the top edge.
+        let topPadding = max(8, minimumTopClearance - topInset)
         return HStack(spacing: 0) {
             pane("All Records") {
                 AllRecordsList(currencySymbol: currencySymbol)
@@ -75,6 +80,7 @@ struct SessionLogView: View {
             }
             .frame(width: max(0, size.width - fold.maxX - clearance))
         }
+        .padding(.top, topPadding)
         .navigationTitle("Records")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)

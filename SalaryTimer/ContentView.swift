@@ -98,6 +98,13 @@ struct ContentView: View {
 
                     VerticalBarProbe(isVertical: $barsOnSide)
 
+                    // Toast sits at the top; when half-folded in landscape, over the left half so
+                    // it never floats on the hinge.
+                    toast
+                        .frame(width: geo.verticalFold.map { max(0, $0.minX) })
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: geo.verticalFold == nil ? .top : .topLeading)
+
                     #if DEBUG
                     // Temporary fold diagnostics for the iPhone Duo round (remove in polish phase).
                     FoldDebugReadout(regions: geo.reservedRegions(kind: .division))
@@ -120,9 +127,6 @@ struct ContentView: View {
                         }
                     }
                 }
-            }
-            .overlay(alignment: .top) {
-                toast
             }
             .toolbar {
                 if barsOnSide && verticalSizeClass != .compact {
