@@ -22,7 +22,19 @@ struct SalaryTimerApp: App {
 }
 
 struct RootTabView: View {
+    enum AppTab: Hashable {
+        case meter, records, settings
+    }
+
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    @State private var selection: AppTab = .meter
+    @State private var showsSettingsSheet = false
+
+    /// Regular width (Duo inner display, iPad) shows Settings as a sheet over the current tab;
+    /// compact width (regular iPhones, Duo outer display) keeps it as a normal tab page.
+    private var settingsIsSheet: Bool { horizontalSizeClass == .regular }
 
     private var tabBarVisibility: Visibility {
         // Hidden only behind the black landscape meter (phone landscape, Duo outer landscape).
@@ -30,21 +42,38 @@ struct RootTabView: View {
     }
 
     var body: some View {
-        TabView {
-            Tab("Meter", systemImage: "timer") {
+        TabView(selection: $selection) {
+            Tab("Meter", systemImage: "timer", value: AppTab.meter) {
                 ContentView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
 
-            Tab("Records", systemImage: "trophy") {
+            Tab("Records", systemImage: "trophy", value: AppTab.records) {
                 SessionLogView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
 
-            Tab("Settings", systemImage: "gearshape") {
+            Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
                 SettingsView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
+        }
+        .onChange(of: selection) { previous, current in
+            // On regular width, the Settings item opens a sheet and the previous tab stays selected.
+            guard current == .settings, settingsIsSheet else { return }
+            selection = previous
+            showsSettingsSheet = true
+        }
+        .onChange(of: horizontalSizeClass) {
+            // Unfolding while on the Settings page: keep Settings open, but as a sheet.
+            guard settingsIsSheet, selection == .settings else { return }
+            selection = .meter
+            showsSettingsSheet = true
+        }
+        .sheet(isPresented: $showsSettingsSheet) {
+            SettingsView(isSheet: true)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
     }
 }

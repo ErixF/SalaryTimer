@@ -11,6 +11,8 @@ import UIKit
 /// Settings tab, laid out like the system Settings app: a native grouped Form with
 /// label-left / value-right rows and short footers.
 struct SettingsView: View {
+    /// True when shown as a sheet (regular-width layouts): inline title and an X to close.
+    var isSheet = false
     @AppStorage(ProfileKeys.incomeType) private var incomeType: Int = 0
     @AppStorage(ProfileKeys.hourlyRate) private var hourlyRateText: String = ""
     @AppStorage(ProfileKeys.monthlyIncome) private var monthlyIncomeText: String = ""
@@ -22,6 +24,7 @@ struct SettingsView: View {
 
     @Environment(SalaryTimerStore.self) private var timerStore
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     @FocusState private var focusedField: Field?
 
@@ -132,8 +135,13 @@ struct SettingsView: View {
                     .ignoresSafeArea()
             }
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(isSheet ? .inline : .large)
             .toolbar {
+                if isSheet {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Close", systemImage: "xmark") { dismiss() }
+                    }
+                }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Done") {
