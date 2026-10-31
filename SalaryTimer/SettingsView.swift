@@ -23,8 +23,6 @@ struct SettingsView: View {
     @Environment(SalaryTimerStore.self) private var timerStore
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var showsSaved = false
-    @State private var savedTask: Task<Void, Never>? = nil
     @FocusState private var focusedField: Field?
 
     /// Input fields, used to scroll the focused one clear of the keyboard and its Done button.
@@ -44,12 +42,6 @@ struct SettingsView: View {
             daysPerMonthText: daysPerMonthText,
             deductionText: taxRateText
         )
-    }
-
-    /// Number edits trigger the "Saved" toast (values auto-save via @AppStorage). Symbol and
-    /// income type changes don't, because their effect is visible right away.
-    private var editKey: [String] {
-        [sessionGoalText, hourlyRateText, monthlyIncomeText, taxRateText, hoursPerDayText, daysPerMonthText]
     }
 
     private var isLocked: Bool { timerStore.isRunning }
@@ -154,17 +146,6 @@ struct SettingsView: View {
                     }
                 }
             }
-            .onChange(of: editKey) {
-                flashSaved()
-            }
-        }
-        // Outside the NavigationStack so it sits just below the Dynamic Island,
-        // matching the Meter's "Saved to Records" toast, not below the large title.
-        .overlay(alignment: .top) {
-            if showsSaved {
-                ToastView(message: "Saved")
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
         }
     }
 
@@ -260,18 +241,6 @@ struct SettingsView: View {
             }
         }
         .id(field)
-    }
-
-    // MARK: - Saved
-
-    private func flashSaved() {
-        savedTask?.cancel()
-        withAnimation(.spring(duration: 0.35)) { showsSaved = true }
-        savedTask = Task {
-            try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled else { return }
-            withAnimation(.easeInOut(duration: 0.3)) { showsSaved = false }
-        }
     }
 
     // MARK: - Formatting
