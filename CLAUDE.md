@@ -27,7 +27,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Button colors** (portrait and landscape): Start blue, Pause amber, Resume green (all `.glassProminent`); Archive & Reset plain glass. Landscape state label uses the state color (Ready blue, Running green, Paused amber).
 - **Controls** sit at a fixed height in every state; first-use hint lives in a fixed 34pt slot above them (`@AppStorage("meter.hasArchived")`, shown in Paused until first archive).
 - **Detail card** shows "Started HH:MM:SS". **Goal card** (only when a goal is set) sits under the Today so far / Last session tiles: "62% of $400" or "✓ Reached", bar tinted by state.
-- **Hidden Tools:** 10 quick taps on an invisible 64×64pt area, top-right of Meter, open a sheet. Debug builds only: Show First-Use Hint / Mark as Returning User (`meter.hasArchived`), Add / Remove Sample Records. Always: Reset App (confirm alert; saves any metered time, resets meter, clears Settings values, keeps Records).
+- **Hidden Tools:** 10 quick taps on an invisible 64×64pt area, top-right of Meter, open a sheet. Debug builds only: Show First-Use Hint / Mark as Returning User (`meter.hasArchived`), Add / Remove Sample Records. Always: Reset App (confirm alert; saves any metered time, resets meter, clears Settings values, keeps Records). The sheet only closes via Done (`interactiveDismissDisabled`, so extra fast taps don't dismiss it); actions show a green ✓ confirmation line instead of closing.
 - **Landscape:** chosen by width > height (`< 1000pt`; ≥1000pt shows "Go get an iPhone"). Tab bar hidden by shape, not size class (covers iPhone Duo inner display, keeps iPad's). iPhone Duo inner landscape is ~951pt wide, so it does not hit the iPad message.
 - Portrait Meter caps Dynamic Type at XXX Large (beyond that, controls slide under the tab bar).
 
@@ -41,7 +41,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 ### Records
 - **Model:** `unitPrice` = session average net/sec; `startDate` and `grossEarned` are optional (nil for pre-2.3 records). Changing deductions never rewrites saved records.
 - **Grouping:** Today / Yesterday / per day for 30 days, then per month. Section index labels: day number, or short month (`Sep`, `Sep ’25` outside current year). Collapsing hides rows only — header and index entry stay.
-- **Summary** cards sit above the list (not in its scroll area), so rows never pass behind them; the list's top 24pt is a gradient mask (extended past the bottom so rows still scroll under the tab bar) (`topFade()`, also used on Top 10 under the segmented control) so rows fade out before reaching what's above. List has a 30pt trailing content margin to clear the index bar. Cards: Total earned / Total time (same format as rows: `3min 6s`, `1h 42min`) / Sessions. **Top 10:** `medal.fill` gold/silver/bronze for 1–3, plain numbers after, no "Personal best" chip.
+- **Summary** cards sit above the list (not in its scroll area), so rows never pass behind them; the list's top 24pt is a gradient mask (extended past the bottom so rows still scroll under the tab bar) (`topFade()`, also used on Top 10 under the segmented control) so rows fade out before reaching what's above. List has a 30pt trailing content margin to clear the index bar. Cards: Total earned / Total time (same format as rows: `3min 6s`, `1h 42min`) / Sessions. **Top 10:** `medal.fill` gold/silver/bronze for 1–3, plain numbers after, no "Personal best" chip; "Top 10 by earnings, across all sessions." is the section footer under the rows.
 
 ### Live Activity
 - Moving parts are only Apple's built-in timer views: the elapsed **timer** and a timer-driven `ProgressView` **goal bar** ($0 → goal over the whole session; hidden without a goal; green ✓ beside "Goal $X" once reached as of the last app update).
@@ -68,6 +68,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Visual fixes (done):** glass state chip, seconds on Started, Records spacing/Total time/medals, toast placement, keyboard handling.
 - **Live Activity round (done):** currency symbol everywhere, `Shared/` folder (one attributes file), Live Activity redesign per HIG, session goal (Settings + Meter card + Lock Screen bar), template widget removed, widget min iOS → 26.0.
 - **Settings round (done):** Profile → Settings (gear), Settings-app style `Form`, no Saved toast.
+- **Polish round (done):** Records index-bar clearance, cards above the list with a top fade (All Records and Top 10) while rows still scroll under the tab bar, Top 10 note as footer; state-colored landscape label/button and amber Pause; Hidden Tools sheet (first-use toggle, sample data, reset) replaces the ladybug menu and reset alert.
 
 ## Backlog (next rounds)
 
