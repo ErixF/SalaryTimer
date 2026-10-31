@@ -215,12 +215,8 @@ private struct TopTenList: View {
                     }
                     .listRowBackground(RowBackground())
                 }
-            } header: {
+            } footer: {
                 Text("Top 10 by earnings, across all sessions.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .textCase(nil)
-                    .padding(.leading, -8)
             }
         }
         .listStyle(.insetGrouped)
