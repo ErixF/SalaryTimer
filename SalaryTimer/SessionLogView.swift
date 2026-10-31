@@ -65,17 +65,15 @@ private struct AllRecordsList: View {
     /// so the index bar keeps every entry and can still jump to a collapsed group.
     @State private var collapsed: Set<Date> = []
 
+    /// Trailing content margin that keeps rows clear of the section index bar.
+    private let indexBarClearance: CGFloat = 30
+
     let currencySymbol: String
 
     var body: some View {
         let groups = SessionGrouping.groups(sessions)
 
-        VStack(spacing: 0) {
-            SummaryStrip(sessions: sessions, currencySymbol: currencySymbol)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 4)
-
-            List {
+        List {
             ForEach(groups) { group in
                 Section {
                     // Always one ForEach (empty when collapsed) so the List structure stays static.
@@ -98,10 +96,18 @@ private struct AllRecordsList: View {
                 .sectionIndexLabel(group.indexLabel)
             }
         }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .listSectionIndexVisibility(.visible)
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .listSectionIndexVisibility(.visible)
+        // Extra trailing room so the cards don't crowd the section index bar.
+        .contentMargins(.trailing, indexBarClearance, for: .scrollContent)
+        // Summary cards pinned above the list; rows scroll under them with the system edge effect.
+        .safeAreaBar(edge: .top) {
+            SummaryStrip(sessions: sessions, currencySymbol: currencySymbol)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
         }
+        .scrollEdgeEffectStyle(.soft, for: .top)
     }
 
     private func groupHeader(_ group: SessionDayGroup) -> some View {

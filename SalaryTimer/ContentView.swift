@@ -268,7 +268,7 @@ struct ContentView: View {
                             timerStore.start()
                         }
                     case .running:
-                        meterButton("Pause", systemImage: "pause.fill") {
+                        meterButton("Pause", systemImage: "pause.fill", prominentTint: .orange) {
                             timerStore.pause()
                         }
                     case .paused:
@@ -506,6 +506,24 @@ private struct LandscapeMeter: View {
         }
     }
 
+    /// Same colors as portrait: Ready blue, Running green, Paused amber.
+    private var stateTint: Color {
+        switch state {
+        case .idle: .blue
+        case .running: .green
+        case .paused: .orange
+        }
+    }
+
+    /// Button color for the action it performs: Start blue, Pause amber, Resume green.
+    private var buttonTint: Color {
+        switch state {
+        case .idle: .blue
+        case .running: .orange
+        case .paused: .green
+        }
+    }
+
     private var buttonTitle: String {
         switch state {
         case .idle: "Start"
@@ -567,7 +585,7 @@ private struct LandscapeMeter: View {
             .font(.system(size: 12.5, weight: .bold))
             .tracking(0.8)
             .textCase(.uppercase)
-            .foregroundStyle(state == .running ? Color.green : Color.white.opacity(0.4))
+            .foregroundStyle(stateTint)
 
         if state == .running && !reduceMotion {
             label.phaseAnimator([1.0, 0.55]) { content, opacity in
@@ -590,7 +608,8 @@ private struct LandscapeMeter: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.glassProminent)
+        .tint(buttonTint)
         .controlSize(.large)
     }
 
