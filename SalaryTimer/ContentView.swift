@@ -31,11 +31,10 @@ struct ContentView: View {
     @State private var toastTask: Task<Void, Never>? = nil
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(SalaryTimerStore.self) private var timerStore
     @Query(sort: \SalarySession.endDate, order: .reverse) private var sessions: [SalarySession]
 
-    /// Size of the invisible top-right area that triggers the hidden reset.
-    private let hiddenResetAreaSize: CGFloat = 64
     /// Fixed slot above the buttons so the hint never moves them.
     private let hintSlotHeight: CGFloat = 34
     private let toastDuration: Duration = .milliseconds(2600)
@@ -81,19 +80,18 @@ struct ContentView: View {
 
                     // Values are derived from timestamps, so a 1s timeline is all the ticking needed.
                     TimelineView(.periodic(from: .now, by: 1)) { timeline in
-                        if geo.size.height >= geo.size.width {
-                            portraitLayout(now: timeline.date, height: geo.size.height)
-                        } else {
+                        // Phone-style landscape (incl. Duo outer display) gets the black minimal
+                        // meter; every other size, including the Duo inner display and iPad, does not.
+                        if verticalSizeClass == .compact {
                             landscapeLayout(width: geo.size.width, now: timeline.date)
+                        } else {
+                            portraitLayout(now: timeline.date, height: geo.size.height)
                         }
                     }
                 }
             }
             .overlay(alignment: .top) {
                 toast
-            }
-            .overlay(alignment: .topTrailing) {
-                hiddenResetArea
             }
             .sheet(isPresented: $showsHiddenTools) {
                 HiddenToolsSheet(hasArchived: $hasArchived, onResetApp: { resetApp() })
@@ -172,6 +170,8 @@ struct ContentView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
 
+            // 10 quick taps on the amount open Hidden Tools (works in every layout
+            // except the black landscape view, where a tap shows/hides its button).
             Text(amountText(amount))
                 .font(.system(size: 64, weight: .heavy, design: .rounded))
                 .monospacedDigit()
@@ -180,6 +180,8 @@ struct ContentView: View {
                 .foregroundStyle(.primary)
                 .contentTransition(.numericText(value: amount))
                 .animation(.snappy, value: amount)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: registerHiddenResetTap)
 
             Text("≈ \(perSecondText(earningPerSecond)) / sec")
                 .font(.system(size: 15, weight: .semibold))
@@ -345,9 +347,7 @@ struct ContentView: View {
     // MARK: - Landscape
 
     private func landscapeLayout(width: CGFloat, now: Date) -> some View {
-        Group {
-            if width < 1000 {
-                LandscapeMeter(
+        LandscapeMeter(
                     state: state,
                     amountText: amountText(timerStore.netEarned(at: now)),
                     elapsedText: elapsedClockText(timerStore.elapsed(at: now)),
@@ -361,13 +361,6 @@ struct ContentView: View {
                         }
                     }
                 )
-            } else {
-                Text("Go get an iPhone")
-                    .font(.system(size: 72, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.55))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
     }
 
     // MARK: - Formatting
@@ -393,15 +386,6 @@ struct ContentView: View {
     }
 
     // MARK: - Hidden reset
-
-    /// Invisible tap target in the top-right corner. 10 quick taps open Hidden Tools.
-    private var hiddenResetArea: some View {
-        Color.clear
-            .frame(width: hiddenResetAreaSize, height: hiddenResetAreaSize)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: registerHiddenResetTap)
-            .accessibilityHidden(true)
-    }
 
     private func registerHiddenResetTap() {
         let now = Date()
@@ -547,7 +531,7 @@ private struct HiddenToolsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Close", systemImage: "xmark") { dismiss() }
                 }
             }
             .alert("Reset the app?", isPresented: $confirmsReset) {

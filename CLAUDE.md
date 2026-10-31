@@ -1,6 +1,6 @@
 # SalaryTimer ("Touch Fish")
 
-iOS app that meters how much you earn per second. SwiftUI, SwiftData, ActivityKit. Both the app and the widget extension `TouchFish` (Live Activity) target iOS 26.0 (Liquid Glass used directly, no fallbacks). Tabs: **Meter / Records / Settings**.
+iOS app that meters how much you earn per second. SwiftUI, SwiftData, ActivityKit. Both the app and the widget extension `TouchFish` (Live Activity) target **iOS 27.1** (raised from 26.0 in the iPhone Duo round) (Liquid Glass used directly, no fallbacks). Tabs: **Meter / Records / Settings**.
 
 ## Architecture
 
@@ -27,8 +27,8 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Button colors** (portrait and landscape): Start blue, Pause amber, Resume green (all `.glassProminent`); Archive & Reset plain glass. Landscape state label uses the state color (Ready blue, Running green, Paused amber).
 - **Controls** sit at a fixed height in every state; first-use hint lives in a fixed 34pt slot above them (`@AppStorage("meter.hasArchived")`, shown in Paused until first archive).
 - **Detail card** shows "Started HH:MM:SS". **Goal card** (only when a goal is set) sits under the Today so far / Last session tiles: "62% of $400" or "✓ Reached", bar tinted by state.
-- **Hidden Tools:** 10 quick taps on an invisible 64×64pt area, top-right of Meter, open a sheet. Debug builds only: Show First-Use Hint / Mark as Returning User (`meter.hasArchived`), Add / Remove Sample Records. Always: Reset App (confirm alert; saves any metered time, resets meter, clears Settings values, keeps Records). The sheet only closes via Done (`interactiveDismissDisabled`, so extra fast taps don't dismiss it); actions show a green ✓ confirmation line instead of closing.
-- **Landscape:** chosen by width > height (`< 1000pt`; ≥1000pt shows "Go get an iPhone"). Tab bar hidden by shape, not size class (covers iPhone Duo inner display, keeps iPad's). iPhone Duo inner landscape is ~951pt wide, so it does not hit the iPad message.
+- **Hidden Tools:** 10 quick taps on the big amount (any layout except the black landscape view) open a sheet; it closes only via its X. Debug builds only: Show First-Use Hint / Mark as Returning User (`meter.hasArchived`), Add / Remove Sample Records. Always: Reset App (confirm alert; saves any metered time, resets meter, clears Settings values, keeps Records). The sheet only closes via Done (`interactiveDismissDisabled`, so extra fast taps don't dismiss it); actions show a green ✓ confirmation line instead of closing.
+- **Landscape (black minimal meter):** only when `verticalSizeClass == .compact` (phones in landscape, Duo outer landscape); the tab bar hides there too. Regular-height sizes (Duo inner display, iPad) never get it. No "Go get an iPhone" anymore.
 - Portrait Meter caps Dynamic Type at XXX Large (beyond that, controls slide under the tab bar).
 
 ### Settings
@@ -84,7 +84,7 @@ Design references (Eric's Figma exports, reference only — find alignment yours
 | Inner portrait, folded | Chip + title stay; timer/amount/rate move up, info + button move down to clear the fold | Bottom tab bar, 3 items | Bottom |
 | Inner landscape | **Home** = Meter left ⅔ + Records right ⅓ (add padding under the goal card) | Side bar: **Home / Settings** (2 items) | Side bar, above the menu |
 | Inner landscape, folded | Meter left half, Records right half (fold clear) | Home / Settings (system places it) | Under the Meter, not on the side |
-- **Settings is always a sheet** (every device and pose): tapping the Settings menu item presents a sheet (X button, grabber, medium→large detents, swipe down or tap outside to close) instead of switching tabs; the previous tab stays selected.
+- **Settings is a sheet only on regular-width layouts** (Duo inner display, any pose; iPad too). Duo outer portrait and regular iPhones keep Settings as a normal tab page. Sheet behavior: tapping the Settings menu item presents a sheet (X button, grabber, medium→large detents, swipe down or tap outside to close) instead of switching tabs; the previous tab stays selected.
 - **Hidden Tools**: trigger moves to **10 quick taps on the big amount** on every device and layout, **except the black landscape view** (its single tap still shows/hides the button). Remove the invisible top-right corner area. Sheet closes **only via an X** button (keep `interactiveDismissDisabled`).
 - **Wide screens**: remove "Go get an iPhone". The black landscape view is only for `verticalSizeClass == .compact` (phones in landscape, Duo outer landscape). iPad gets the inner-display layouts.
 - **Pose changes**: when switching from 3 items to Home/Settings, Records → Home (Home already shows Records). Settings sheet stays open across changes.
@@ -96,12 +96,12 @@ Design references (Eric's Figma exports, reference only — find alignment yours
 - `GeometryProxy.reservedRegions(kind: .division)` (fold) — **iOS 27.1**; also occlusions (camera).
 - `@Environment(\.toolbarVerticalEdge)` — **iOS 27.1** (non-nil when bars are on the side).
 - `ToolbarItemVisibilityPriority` — **iOS 27.0**.
-- App minimum stays **iOS 26.0**: wrap all Duo-specific code in `if #available(iOS 27.1, *)`; iOS 26 devices keep the current layouts.
+- App and widget minimum raised to **iOS 27.1** (Eric's call), so Duo APIs are used directly with no `#available` checks.
 - Size classes: outer = compact width; inner = regular width. Use scene/container geometry, never `userInterfaceIdiom` or screen size.
 
 ### Phases (one per turn; build + preview check + commit on `iphone-duo`)
-- [ ] **1. Foundation** — `LayoutMode` resolver (size classes + width vs height + fold from reserved regions): `.phoneLandscape` (black), `.compact` (phone/outer portrait), `.regularPortrait`, `.regularLandscape`, each with `isFolded`. Black view only for vertical-compact; delete "Go get an iPhone" and the 1000pt rule (also in `RootTabView` tab-bar hiding). Split `ContentView` portrait into reusable `MeterHero`, `MeterInfo`, `MeterActions` views. Hidden Tools trigger → 10 taps on the amount (not in black view); remove corner area; Hidden Tools gets an X button.
-- [ ] **2. Settings as a sheet** — tab-selection interception (3-item and 2-item menus) presents `SettingsView` in a sheet with X, detents, tap-outside dismiss; keep the previous tab selected.
+- [x] **1. Foundation** (done: min iOS 27.1; black view only for `verticalSizeClass == .compact`, also drives tab-bar hiding; "Go get an iPhone" + 1000pt rule removed; Hidden Tools = 10 taps on the amount, X to close, corner area removed. **Deferred to Phase 3:** `LayoutMode` resolver and splitting the Meter into `MeterHero` / `MeterInfo` / `MeterActions`.) Original scope — `LayoutMode` resolver (size classes + width vs height + fold from reserved regions): `.phoneLandscape` (black), `.compact` (phone/outer portrait), `.regularPortrait`, `.regularLandscape`, each with `isFolded`. Black view only for vertical-compact; delete "Go get an iPhone" and the 1000pt rule (also in `RootTabView` tab-bar hiding). Split `ContentView` portrait into reusable `MeterHero`, `MeterInfo`, `MeterActions` views. Hidden Tools trigger → 10 taps on the amount (not in black view); remove corner area; Hidden Tools gets an X button.
+- [ ] **2. Settings as a sheet (regular width only)** — tab-selection interception (3-item and 2-item menus) presents `SettingsView` in a sheet with X, detents, tap-outside dismiss; keep the previous tab selected.
 - [ ] **3. Outer portrait** — hero top / info bottom filling the screen; action buttons as toolbar items in the side bar (`toolbarVerticalEdge` non-nil), try the tall capsule; Paused = two icon buttons. Keep a `useBottomActions` switch for the fallback.
 - [ ] **4. Inner portrait (flat + folded)** — scaled-up layout, bottom tab bar, wide bottom button; when folded, read the horizontal division and push hero up / info down around it.
 - [ ] **5. Inner landscape Home** — Meter ⅔ + Records ⅓, menu becomes Home / Settings, side-bar actions, Records→Home mapping on pose change.
