@@ -19,6 +19,8 @@ struct SalaryTimerAttributes: ActivityAttributes {
         /// Set while the meter is paused; the activity shows frozen values.
         var pausedAt: Date? = nil
         var currencySymbol: String = Money.defaultSymbol
+        /// Optional session goal; `nil` hides the progress bar.
+        var goalAmount: Double? = nil
     }
 }
 

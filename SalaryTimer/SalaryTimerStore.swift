@@ -83,6 +83,19 @@ enum ProfileKeys {
     static let hoursPerDay = "profile.hoursPerDay"
     static let daysPerMonth = "profile.daysPerMonth"
     static let currencySymbol = "profile.currencySymbol"
+    static let sessionGoal = "profile.sessionGoal"
+}
+
+/// Optional per-session earnings goal from Profile. Blank or zero means no goal.
+enum SessionGoal {
+    static func amount(from text: String) -> Double? {
+        guard let value = Double(text.trimmingCharacters(in: .whitespaces)), value > 0 else { return nil }
+        return value
+    }
+
+    static func current(_ defaults: UserDefaults = .standard) -> Double? {
+        amount(from: defaults.string(forKey: ProfileKeys.sessionGoal) ?? "")
+    }
 }
 
 // MARK: - Store
@@ -267,7 +280,8 @@ final class SalaryTimerStore {
             startingAmount: netEarned(at: now),
             earningPerSecond: segmentNetPerSecond,
             pausedAt: state == .paused ? now : nil,
-            currencySymbol: defaults.string(forKey: ProfileKeys.currencySymbol) ?? Money.defaultSymbol
+            currencySymbol: defaults.string(forKey: ProfileKeys.currencySymbol) ?? Money.defaultSymbol,
+            goalAmount: SessionGoal.current(defaults)
         )
     }
 

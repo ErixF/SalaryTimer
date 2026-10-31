@@ -17,6 +17,7 @@ struct ContentView: View {
     @AppStorage(ProfileKeys.hoursPerDay) private var hoursPerDayText: String = ""
     @AppStorage(ProfileKeys.daysPerMonth) private var daysPerMonthText: String = ""
     @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
+    @AppStorage(ProfileKeys.sessionGoal) private var sessionGoalText: String = ""
 
     /// Set after the first successful Archive & Reset; hides the first-use hint for good.
     @AppStorage("meter.hasArchived") private var hasArchived = false
@@ -118,6 +119,16 @@ struct ContentView: View {
 
                 statsRow
                     .padding(.top, 18)
+
+                if let goal = SessionGoal.amount(from: sessionGoalText) {
+                    GoalCard(
+                        earned: timerStore.netEarned(at: now),
+                        goal: goal,
+                        state: state,
+                        format: { amountText($0) }
+                    )
+                    .padding(.top, 10)
+                }
 
                 Spacer(minLength: 18)
 
@@ -592,6 +603,55 @@ private struct LandscapeMeter: View {
             guard !Task.isCancelled else { return }
             withAnimation(.easeInOut(duration: 0.3)) { showsControls = false }
         }
+    }
+}
+
+/// Session goal progress, shown only when a goal is set in Profile.
+private struct GoalCard: View {
+    let earned: Double
+    let goal: Double
+    let state: MeterState
+    let format: (Double) -> String
+
+    private var fraction: Double { min(1, max(0, earned / goal)) }
+    private var isReached: Bool { earned >= goal }
+
+    private var tint: Color {
+        switch state {
+        case .idle: .blue
+        case .running: .green
+        case .paused: .orange
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Session goal")
+                    .font(.system(size: 11.5, weight: .bold))
+                    .tracking(0.8)
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Group {
+                    if isReached {
+                        Label("Reached \(format(goal))", systemImage: "checkmark.circle.fill")
+                    } else {
+                        Text("\(fraction.formatted(.percent.precision(.fractionLength(0)))) of \(format(goal))")
+                    }
+                }
+                .font(.footnote.weight(.semibold))
+                .monospacedDigit()
+            }
+
+            ProgressView(value: fraction)
+                .progressViewStyle(.linear)
+                .tint(tint)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .contentCard(cornerRadius: 16)
+        .accessibilityElement(children: .combine)
     }
 }
 

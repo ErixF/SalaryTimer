@@ -11,7 +11,7 @@ import ActivityKit
 import Foundation
 
 // Live Activities can only animate Apple's built-in timer views on their own, so the moving
-// parts here are the elapsed timer and a timer-driven progress bar. Everything else is drawn
+// parts here are the elapsed timer and a timer-driven session-goal bar. Everything else is drawn
 // from the last state the app pushed.
 
 struct SalaryTimerLiveActivity: Widget {
@@ -82,7 +82,9 @@ private struct MeterActivityView: View {
                 .font(.system(size: 40, weight: .heavy, design: .rounded))
                 .foregroundStyle(onDarkBackground ? .white : .primary)
 
-            EarningsProgress(state: state, secondary: secondary)
+            if let goal = state.goalAmount, goal > 0 {
+                GoalProgress(state: state, goal: goal, secondary: secondary)
+            }
         }
     }
 }
@@ -119,28 +121,16 @@ private struct StateChip: View {
     }
 }
 
-// MARK: - Progress toward the next amount
+// MARK: - Session goal progress
 
-/// A bar that fills live toward the next whole amount, using a timer-driven ProgressView so it
-/// moves without app updates. Labels show the whole amounts at each end.
-private struct EarningsProgress: View {
+/// Fills from $0 to the session goal over the whole session. Timer-driven, so it moves without
+/// app updates and never needs to restart; a resume pushes fresh state that re-anchors it.
+private struct GoalProgress: View {
     let state: SalaryTimerAttributes.ContentState
+    let goal: Double
     let secondary: Color
 
-    /// Steps so one bar takes at least a minute to fill, even at high rates.
-    private static let steps: [Double] = [1, 5, 10, 50, 100, 500, 1000]
-    private static let minimumFillTime: TimeInterval = 60
-
-    private var step: Double {
-        guard state.earningPerSecond > 0 else { return 1 }
-        return Self.steps.first { $0 / state.earningPerSecond >= Self.minimumFillTime } ?? Self.steps.last ?? 1
-    }
-
-    /// Amount at the moment the app last updated (or paused).
-    private var anchorAmount: Double { state.amount(at: state.pausedAt ?? state.amountAnchorDate) }
-
-    private var lowerBound: Double { (anchorAmount / step).rounded(.down) * step }
-    private var upperBound: Double { lowerBound + step }
+    private var currentAmount: Double { state.amount(at: state.pausedAt ?? state.amountAnchorDate) }
 
     /// When the total reaches `amount`, extrapolated from the last update.
     private func date(reaching amount: Double) -> Date {
@@ -150,11 +140,11 @@ private struct EarningsProgress: View {
     var body: some View {
         VStack(spacing: 4) {
             Group {
-                if state.isPaused || state.earningPerSecond <= 0 {
-                    ProgressView(value: (anchorAmount - lowerBound) / step)
+                if state.isPaused || state.earningPerSecond <= 0 || currentAmount >= goal {
+                    ProgressView(value: min(1, currentAmount / goal))
                 } else {
                     ProgressView(
-                        timerInterval: date(reaching: lowerBound) ... date(reaching: upperBound),
+                        timerInterval: date(reaching: 0) ... date(reaching: goal),
                         countsDown: false
                     ) {
                         EmptyView()
@@ -168,9 +158,9 @@ private struct EarningsProgress: View {
             .labelsHidden()
 
             HStack {
-                Text(Money.string(lowerBound, symbol: state.currencySymbol, fractionDigits: 0...0))
+                Text(Money.string(0, symbol: state.currencySymbol, fractionDigits: 0...0))
                 Spacer()
-                Text(Money.string(upperBound, symbol: state.currencySymbol, fractionDigits: 0...0))
+                Text("Goal \(Money.string(goal, symbol: state.currencySymbol, fractionDigits: 0...2))")
             }
             .font(.caption2.weight(.semibold))
             .monospacedDigit()
@@ -227,7 +217,8 @@ extension SalaryTimerAttributes.ContentState {
             sessionStartDate: .now.addingTimeInterval(-888),
             amountAnchorDate: .now.addingTimeInterval(-30),
             startingAmount: 12.35,
-            earningPerSecond: 0.0139
+            earningPerSecond: 0.0139,
+            goalAmount: 400
         )
     }
 

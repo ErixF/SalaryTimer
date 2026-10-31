@@ -16,6 +16,7 @@ struct ProfileView: View {
     @AppStorage(ProfileKeys.hoursPerDay) private var hoursPerDayText: String = ""
     @AppStorage(ProfileKeys.daysPerMonth) private var daysPerMonthText: String = ""
     @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
+    @AppStorage(ProfileKeys.sessionGoal) private var sessionGoalText: String = ""
 
     @Environment(SalaryTimerStore.self) private var timerStore
 
@@ -25,7 +26,7 @@ struct ProfileView: View {
 
     /// Input fields, used to keep the focused one scrolled above the keyboard.
     private enum Field: Hashable {
-        case hourlyRate, monthlyIncome, hoursPerDay, daysPerMonth, deductions
+        case hourlyRate, monthlyIncome, hoursPerDay, daysPerMonth, deductions, sessionGoal
     }
 
     private var rates: RateCalculator {
@@ -42,7 +43,7 @@ struct ProfileView: View {
     /// Number edits trigger the "Saved" toast (values auto-save via @AppStorage). Symbol and
     /// income type changes don't, because their effect is visible right away.
     private var editKey: [String] {
-        [hourlyRateText, monthlyIncomeText, taxRateText, hoursPerDayText, daysPerMonthText]
+        [sessionGoalText, hourlyRateText, monthlyIncomeText, taxRateText, hoursPerDayText, daysPerMonthText]
     }
 
     var body: some View {
@@ -78,6 +79,18 @@ struct ProfileView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
+
+                    sectionLabel("Session Goal (optional)")
+                    GroupedCard {
+                        fieldRow("Goal", placeholder: "Optional", unit: currencySymbol, text: $sessionGoalText, field: .sessionGoal)
+                    }
+                    .disabled(timerStore.isRunning)
+
+                    Text("Leave blank for no goal. A goal shows as a progress bar on the Meter and the Lock Screen.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)

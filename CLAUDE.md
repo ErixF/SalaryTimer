@@ -29,6 +29,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Records grouping:** Today / Yesterday / per day for 30 days, then per month. Section index labels: day number, or short month (`Sep`, `Sep ’25` outside current year). Collapsing hides rows only — header and index entry stay.
 - **Visual language:** SF Pro family only; amount and title use SF Pro Rounded. Glass is for controls and status only (buttons, toasts, landscape button, tab bar, the Meter state chip as tinted glass); content cards are flat translucent fills. Profile rate card uses a green accent. Confirmations ("Saved to Records", Profile "Saved") use the shared `ToastView`. Idle blue, Running green, Paused dim green + amber chip. App follows system light/dark (landscape meter is always black). Money is shown as plain `$` (not locale `US$`).
 - **Meter controls** sit at a fixed height in every state; first-use hint lives in a fixed 34pt slot above them (`@AppStorage("meter.hasArchived")`, shown in Paused until first archive).
+- **Session goal:** optional `profile.sessionGoal` (Profile → Session Goal). Blank = no goal, no bar anywhere. Shown as a card under the Meter stat tiles and as the Live Activity bar (`goalAmount` in `ContentState`).
 - **Hidden reset:** 10 quick taps on an invisible 64×64pt area, top-right of Meter. Saves any metered time, resets meter, clears Profile.
 - **Landscape:** chosen by width > height (`< 1000pt`; ≥1000pt shows "Go get an iPhone"). Tab bar hidden by shape, not size class (covers iPhone Duo inner display, keeps iPad's). iPhone Duo inner landscape is ~951pt wide, so it does not hit the iPad message.
 - Portrait Meter caps Dynamic Type at XXX Large (beyond that, controls slide under the tab bar).
@@ -41,7 +42,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 
 ## Backlog (next rounds)
 
-- Live Activity (done 2026-10-30): moving parts are the live timer and a timer-driven `ProgressView` filling toward the next whole amount (step grows so a fill takes ≥ 60s). Compact = live timer left + state-colored capsule with `$50/hr` right; minimal = symbol in state-colored circle. **Custom `FormatStyle`s in `Text(.currentDate, format:)` render as grey placeholders in Live Activities** — only Apple's built-in date/timer views tick on their own. Amounts only change when the app pushes (15s loop while running in foreground). Template "My Widget" removed.
+- Live Activity (done 2026-10-30): moving parts are the live timer and a timer-driven `ProgressView` from $0 to the optional session goal over the whole session (a "next dollar" bar was tried and dropped: once full it can't restart without the app). Compact = live timer left + state-colored capsule with `$50/hr` right; minimal = symbol in state-colored circle. **Custom `FormatStyle`s in `Text(.currentDate, format:)` render as grey placeholders in Live Activities** — only Apple's built-in date/timer views tick on their own. Amounts only change when the app pushes (15s loop while running in foreground). Template "My Widget" removed.
 - iCloud sync (storage is local SwiftData + AppStorage for now).
 - Tap a record for its gross / deductions / net breakdown (data already stored for 2.3+ records).
 - Verify first-use hint fits on smallest iPhone (iPhone SE width).
