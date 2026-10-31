@@ -24,6 +24,9 @@ struct ContentView: View {
 
     // MARK: - Local UI state
     @State private var showsHiddenTools = false
+    /// True when iOS presents bars on the side (Duo outer display, Duo inner landscape).
+    /// The action buttons then move into the side bar.
+    @State private var barsOnSide = false
     @State private var resetTapCount = 0
     @State private var lastResetTapDate: Date? = nil
     @State private var titleIndex = 0
@@ -80,6 +83,8 @@ struct ContentView: View {
                     AmbientBackground(state: state)
                         .ignoresSafeArea()
 
+                    VerticalBarProbe(isVertical: $barsOnSide)
+
                     // Values are derived from timestamps, so a 1s timeline is all the ticking needed.
                     TimelineView(.periodic(from: .now, by: 1)) { timeline in
                         // Phone-style landscape (incl. Duo outer display) gets the black minimal
@@ -94,6 +99,11 @@ struct ContentView: View {
             }
             .overlay(alignment: .top) {
                 toast
+            }
+            .toolbar {
+                if barsOnSide && verticalSizeClass != .compact {
+                    sideBarActions
+                }
             }
             .sheet(isPresented: $showsHiddenTools) {
                 HiddenToolsSheet(hasArchived: $hasArchived, onResetApp: { resetApp() })
@@ -116,6 +126,11 @@ struct ContentView: View {
                 heroSection(now: now)
                     .padding(.top, 22)
 
+                // Side-bar layout: hero block at the top, info block pinned to the bottom.
+                if barsOnSide {
+                    Spacer(minLength: 24)
+                }
+
                 detailCard(now: now)
                     .padding(.top, 18)
 
@@ -132,9 +147,17 @@ struct ContentView: View {
                     .padding(.top, 10)
                 }
 
-                Spacer(minLength: 18)
+                if barsOnSide {
+                    // Buttons live in the side bar; only the first-use hint stays in the content.
+                    if state == .paused && !hasArchived {
+                        firstUseHint
+                            .padding(.top, 12)
+                    }
+                } else {
+                    Spacer(minLength: 18)
 
-                controlSection
+                    controlSection
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, max(8, minimumTopClearance - topInset))
@@ -256,12 +279,7 @@ struct ContentView: View {
     /// The hint slot is always present so buttons sit at the same height in every state.
     private var controlSection: some View {
         VStack(spacing: 0) {
-            Text("“Archive & Reset” saves the current numbers to Records and resets the meter.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
+            firstUseHint
                 .opacity(state == .paused && !hasArchived ? 1 : 0)
                 .frame(maxWidth: .infinity, minHeight: hintSlotHeight, maxHeight: hintSlotHeight, alignment: .bottom)
                 .padding(.bottom, 7)
@@ -289,6 +307,41 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: state)
+    }
+
+    private var firstUseHint: some View {
+        Text("“Archive & Reset” saves the current numbers to Records and resets the meter.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.85)
+    }
+
+    /// Action buttons as side-bar toolbar items. Each has a title and a symbol, which iOS needs
+    /// to present an item vertically (it shows the symbol on the side, the title in overflow).
+    @ToolbarContentBuilder
+    private var sideBarActions: some ToolbarContent {
+        if state == .idle {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Start", systemImage: "play.fill") { timerStore.start() }
+                    .buttonStyle(.glassProminent)
+                    .tint(.blue)
+            }
+        } else if state == .running {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Pause", systemImage: "pause.fill") { timerStore.pause() }
+                    .buttonStyle(.glassProminent)
+                    .tint(.orange)
+            }
+        } else {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button("Resume", systemImage: "play.fill") { timerStore.start() }
+                    .buttonStyle(.glassProminent)
+                    .tint(.green)
+                Button("Archive & Reset", systemImage: "archivebox.fill") { archiveAndReset() }
+            }
+        }
     }
 
     /// Glass button; pass `prominentTint` for the primary action of a state.
@@ -742,6 +795,20 @@ private struct GoalCard: View {
         .padding(.vertical, 12)
         .contentCard(cornerRadius: 16)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Reports whether iOS is presenting bars vertically on the side (iPhone Duo).
+private struct VerticalBarProbe: View {
+    @Binding var isVertical: Bool
+    @Environment(\.toolbarVerticalEdge) private var verticalEdge
+
+    var body: some View {
+        Color.clear
+            .allowsHitTesting(false)
+            .onChange(of: verticalEdge != nil, initial: true) { _, vertical in
+                isVertical = vertical
+            }
     }
 }
 
