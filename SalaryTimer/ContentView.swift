@@ -105,10 +105,6 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity,
                                alignment: geo.verticalFold == nil ? .top : .topLeading)
 
-                    #if DEBUG
-                    // Temporary fold diagnostics for the iPhone Duo round (remove in polish phase).
-                    FoldDebugReadout(regions: geo.reservedRegions(kind: .division))
-                    #endif
 
                     // Values are derived from timestamps, so a 1s timeline is all the ticking needed.
                     TimelineView(.periodic(from: .now, by: 1)) { timeline in
@@ -922,30 +918,6 @@ private struct GoalCard: View {
     }
 }
 
-#if DEBUG
-/// Shows the fold regions iOS reports, so fold layouts can be verified in the simulator.
-private struct FoldDebugReadout: View {
-    let regions: [ReservedRegion]
-
-    var body: some View {
-        let lines = regions.isEmpty
-            ? ["fold: none reported"]
-            : regions.map { region in
-                let f = region.frame
-                return "fold \(region.isActive ? "ACTIVE" : "inactive"): x\(Int(f.minX)) y\(Int(f.minY)) w\(Int(f.width)) h\(Int(f.height))"
-            }
-        Text(lines.joined(separator: "\n"))
-            .font(.caption2.monospaced())
-            .foregroundStyle(.red)
-            .padding(6)
-            .background(.white.opacity(0.8), in: RoundedRectangle(cornerRadius: 6))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-            .padding(.leading, 12)
-            .padding(.bottom, 90)
-            .allowsHitTesting(false)
-    }
-}
-#endif
 
 /// Reports whether iOS is presenting bars vertically on the side (iPhone Duo).
 private struct VerticalBarProbe: View {
