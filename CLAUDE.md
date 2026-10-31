@@ -27,7 +27,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Button colors** (portrait and landscape): Start blue, Pause amber, Resume green (all `.glassProminent`); Archive & Reset plain glass. Landscape state label uses the state color (Ready blue, Running green, Paused amber).
 - **Controls** sit at a fixed height in every state; first-use hint lives in a fixed 34pt slot above them (`@AppStorage("meter.hasArchived")`, shown in Paused until first archive).
 - **Detail card** shows "Started HH:MM:SS". **Goal card** (only when a goal is set) sits under the Today so far / Last session tiles: "62% of $400" or "✓ Reached", bar tinted by state.
-- **Hidden Tools:** 10 quick taps on the big amount (any layout except the black landscape view) open a sheet; it closes only via its X. Debug builds only: Show First-Use Hint / Mark as Returning User (`meter.hasArchived`), Add / Remove Sample Records. Always: Reset App (confirm alert; saves any metered time, resets meter, clears Settings values, keeps Records). The sheet only closes via Done (`interactiveDismissDisabled`, so extra fast taps don't dismiss it); actions show a green ✓ confirmation line instead of closing.
+- **Hidden Tools:** 10 quick taps on the big amount (any layout except the black landscape view) open a sheet; it closes only via its X. Debug builds only: Show First-Use Hint / Mark as Returning User (`meter.hasArchived`), Add / Remove Sample Records. Always: Reset App (confirm alert; saves any metered time, resets meter, clears Settings values, keeps Records). `interactiveDismissDisabled`, so extra fast taps don't dismiss it; actions show a green ✓ confirmation line instead of closing.
 - **Landscape (black minimal meter):** only when `verticalSizeClass == .compact` (phones in landscape, Duo outer landscape); the tab bar hides there too. Regular-height sizes (Duo inner display, iPad) never get it. No "Go get an iPhone" anymore.
 - Portrait Meter caps Dynamic Type at XXX Large (beyond that, controls slide under the tab bar).
 
@@ -41,7 +41,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 ### Records
 - **Model:** `unitPrice` = session average net/sec; `startDate` and `grossEarned` are optional (nil for pre-2.3 records). Changing deductions never rewrites saved records.
 - **Grouping:** Today / Yesterday / per day for 30 days, then per month. Section index labels: day number, or short month (`Sep`, `Sep ’25` outside current year). Collapsing hides rows only — header and index entry stay.
-- **Summary** cards sit above the list (not in its scroll area), so rows never pass behind them; the list's top 24pt is a gradient mask (extended past the bottom so rows still scroll under the tab bar) (`topFade()`, also used on Top 10 under the segmented control) so rows fade out before reaching what's above. List has a 30pt trailing content margin to clear the index bar. Cards: Total earned / Total time (same format as rows: `3min 6s`, `1h 42min`) / Sessions. **Top 10:** `medal.fill` gold/silver/bronze for 1–3, plain numbers after, no "Personal best" chip; "Top 10 by earnings, across all sessions." is the section footer under the rows.
+- **Summary** cards sit above the list (not in its scroll area), so rows never pass behind them; the list's top 24pt is a gradient mask (extended past the bottom so rows still scroll under the tab bar) (`topFade()`, also used on Top 10 under the segmented control) so rows fade out before reaching what's above. No extra trailing margin: the system already insets rows for the index bar (an added margin squared off the cards' right corners and put the index over the times). Cards: Total earned / Total time (same format as rows: `3min 6s`, `1h 42min`) / Sessions. **Top 10:** `medal.fill` gold/silver/bronze for 1–3, plain numbers after, no "Personal best" chip; "Top 10 by earnings, across all sessions." is the section footer under the rows.
 
 ### Live Activity
 - Moving parts are only Apple's built-in timer views: the elapsed **timer** and a timer-driven `ProgressView` **goal bar** ($0 → goal over the whole session; hidden without a goal; green ✓ beside "Goal $X" once reached as of the last app update).
@@ -71,6 +71,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Settings round (done):** Profile → Settings (gear), Settings-app style `Form`, no Saved toast.
 - **Polish round (done):** Records index-bar clearance, cards above the list with a top fade (All Records and Top 10) while rows still scroll under the tab bar, Top 10 note as footer; state-colored landscape label/button and amber Pause; Hidden Tools sheet (first-use toggle, sample data, reset) replaces the ladybug menu and reset alert.
 - **iPhone Duo round (done):** min iOS 27.1, size-class black view, Hidden Tools on the amount, side-bar actions, centered side-bar Meter, wide portrait sizing, fold-aware portrait/landscape Meter and Records, Apple-style split Settings everywhere, Alternative Look toggle (Settings sheet + combined Home). See the iPhone Duo section.
+- **Duo adjustments (done, branch `duo-adjustments`):** Records rows keep rounded corners beside the index; Home swapped (Records ⅓ left, Meter right) with no menu and a side-bar Settings gear; Settings reopens on its root after leaving the tab.
 
 ## iPhone Duo (done 2026-10-31, branch `iphone-duo`)
 
@@ -83,16 +84,18 @@ Apple guidance: memory `iphone-duo-guidelines` (HIG + dev page; read via the JSO
 | Outer landscape | Black minimal meter | Same |
 | Inner portrait (flat) | "Bigger iPhone": column ≤ 640pt, hero/title ×1.35, button row ≤ 440pt, centered, bottom tab bar | Same, Settings = sheet |
 | Inner portrait (half open) | Chip + title + hero above the fold, info cards + button below | Same |
-| Inner landscape (flat) | Meter page centered, buttons in the side bar | **Home** (Meter ⅔ + Records ⅓), menu Home / Settings, Settings = sheet |
-| Inner landscape (half open) | Meter: hero left of the fold, info right, buttons in the side bar. Records: All Records left, Top 10 right | Home: Meter left half (button under it), Records right half |
+| Inner landscape (flat) | Meter page centered, buttons in the side bar | **Home** (Records ⅓ + Meter ⅔), no menu, side bar = actions + Settings gear (sheet) |
+| Inner landscape (half open) | Meter: hero left of the fold, info right, buttons in the side bar. Records: All Records left, Top 10 right | Home: Records left half, Meter right half, same side bar |
 
 ### How it works
 - **Detection:** size classes (outer = compact width, inner = regular), `verticalSizeClass == .compact` for the black view, `VerticalBarProbe` reads `toolbarVerticalEdge` into `barsOnSide`, and `GeometryProxy.horizontalFold` / `.verticalFold` (SalaryTimerApp.swift) read active `.division` reserved regions. Never use `userInterfaceIdiom` or screen size.
 - **Side-bar actions:** `.primaryAction` toolbar items with title + symbol (custom frames stop them being shown vertically, so no tall capsule). Paused = ▶ Resume + archivebox Archive & Reset, icon-only.
 - **Settings:** always the Apple-style split list (`NavigationSplitView`) on every device. With Alternative Look ON and regular width it's a sheet (`RootTabView.settingsIsSheet`); `syncSettingsPresentation()` swaps page ↔ sheet on fold/unfold and toggle changes.
-- **Home:** `RootTabView.usesHome` = alternativeLook && regular/regular && landscape; `HomeView` sizes `ContentView` | `SessionLogView` by ⅔ or by the fold, so each child sees no fold and lays out normally. Selection maps Meter/Records ⇄ Home.
+- **Home:** `RootTabView.usesHome` = alternativeLook && regular/regular && landscape. Then `RootTabView` shows `HomeView` **instead of** the `TabView` (hiding the tab bar didn't remove the side-bar menu). `HomeView` sizes `SessionLogView(isEmbedded: true)` | `ContentView(onOpenSettings:)` by ⅓ or by the fold, so each child sees no fold. The Meter adds a Settings gear (`.bottomBar` → bottom of the side bar) next to its actions. Embedded Records has **no `NavigationStack`** (its UIKit container reserved the side bar's width and squeezed the column), draws its own large title, and stacks its summary (Total earned + Total time, then a one-line Sessions card).
+- **Settings resets to its root** whenever the user leaves the Settings tab (`settingsResetID` → `.id`). Fold/unfold page ⇄ sheet swaps may keep the current page.
 - **Toast:** placed inside the Meter's geometry; when half open in landscape it centers over the left half.
 - **Hidden Tools:** 10 taps on the big amount (not in the black view); closes only via X.
+- Alternative Look in inner **portrait** keeps the Meter / Records / Settings bar (Settings = sheet).
 - Min iOS **27.1** (app + widget), so Duo APIs are used directly.
 
 ### Testing in the simulator (no physical device)

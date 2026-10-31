@@ -34,6 +34,8 @@ struct RootTabView: View {
     @State private var selection: AppTab = .meter
     @State private var showsSettingsSheet = false
     @State private var isLandscape = false
+    /// Changed whenever the user leaves the Settings tab, which rebuilds it on its root list.
+    @State private var settingsResetID = UUID()
 
     /// Alternative Look on a wide landscape screen (Duo inner landscape, iPad landscape): Home
     /// combines Records and the Meter, the menu is hidden, and Settings is a side-bar button.
@@ -60,6 +62,10 @@ struct RootTabView: View {
             }
         }
         .onChange(of: selection) { previous, current in
+            // Leaving the Settings tab: the next visit starts on its root list, not the last page.
+            if previous == .settings, current != .settings {
+                settingsResetID = UUID()
+            }
             // On regular width, the Settings item opens a sheet and the previous tab stays selected.
             guard current == .settings, settingsIsSheet else { return }
             selection = previous
@@ -101,6 +107,7 @@ struct RootTabView: View {
 
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
                 SettingsView()
+                    .id(settingsResetID)
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
         }
