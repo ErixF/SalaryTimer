@@ -107,9 +107,6 @@ private struct AllRecordsList: View {
     /// so the index bar keeps every entry and can still jump to a collapsed group.
     @State private var collapsed: Set<Date> = []
 
-    /// Trailing content margin that keeps rows clear of the section index bar.
-    private let indexBarClearance: CGFloat = 30
-
     let currencySymbol: String
 
     var body: some View {
@@ -147,8 +144,6 @@ private struct AllRecordsList: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .listSectionIndexVisibility(.visible)
-            // Extra trailing room so rows don't crowd the section index bar.
-            .contentMargins(.trailing, indexBarClearance, for: .scrollContent)
             .topFade()
         }
     }
