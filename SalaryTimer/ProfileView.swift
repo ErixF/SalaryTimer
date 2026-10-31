@@ -64,7 +64,7 @@ struct ProfileView: View {
                     previewCard
                         .padding(.top, 14)
 
-                    sectionLabel("Deductions (optional)")
+                    sectionLabel("Deductions")
                     GroupedCard {
                         fieldRow("Deductions", placeholder: "Optional", unit: "%", text: $taxRateText, field: .deductions)
                     }
@@ -80,7 +80,7 @@ struct ProfileView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
 
-                    sectionLabel("Session Goal (optional)")
+                    sectionLabel("Session Goal")
                     GroupedCard {
                         fieldRow("Goal", placeholder: "Optional", unit: currencySymbol, text: $sessionGoalText, field: .sessionGoal)
                     }

@@ -132,6 +132,9 @@ private struct GoalProgress: View {
 
     private var currentAmount: Double { state.amount(at: state.pausedAt ?? state.amountAnchorDate) }
 
+    /// As of the last update from the app; the bar itself fills on its own regardless.
+    private var isReached: Bool { currentAmount >= goal }
+
     /// When the total reaches `amount`, extrapolated from the last update.
     private func date(reaching amount: Double) -> Date {
         state.amountAnchorDate.addingTimeInterval((amount - state.startingAmount) / state.earningPerSecond)
@@ -140,7 +143,7 @@ private struct GoalProgress: View {
     var body: some View {
         VStack(spacing: 4) {
             Group {
-                if state.isPaused || state.earningPerSecond <= 0 || currentAmount >= goal {
+                if state.isPaused || state.earningPerSecond <= 0 || isReached {
                     ProgressView(value: min(1, currentAmount / goal))
                 } else {
                     ProgressView(
@@ -160,7 +163,15 @@ private struct GoalProgress: View {
             HStack {
                 Text(Money.string(0, symbol: state.currencySymbol, fractionDigits: 0...0))
                 Spacer()
-                Text("Goal \(Money.string(goal, symbol: state.currencySymbol, fractionDigits: 0...2))")
+                HStack(spacing: 4) {
+                    Text("Goal \(Money.string(goal, symbol: state.currencySymbol, fractionDigits: 0...2))")
+                    if isReached {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.green)
+                            .accessibilityLabel("Goal reached")
+                    }
+                }
             }
             .font(.caption2.weight(.semibold))
             .monospacedDigit()
@@ -222,6 +233,16 @@ extension SalaryTimerAttributes.ContentState {
         )
     }
 
+    fileprivate static var previewReached: Self {
+        Self(
+            sessionStartDate: .now.addingTimeInterval(-3600),
+            amountAnchorDate: .now,
+            startingAmount: 50.04,
+            earningPerSecond: 0.0139,
+            goalAmount: 50
+        )
+    }
+
     fileprivate static var previewPaused: Self {
         Self(
             sessionStartDate: .now.addingTimeInterval(-890),
@@ -237,6 +258,7 @@ extension SalaryTimerAttributes.ContentState {
     SalaryTimerLiveActivity()
 } contentStates: {
     SalaryTimerAttributes.ContentState.previewRunning
+    SalaryTimerAttributes.ContentState.previewReached
     SalaryTimerAttributes.ContentState.previewPaused
 }
 
