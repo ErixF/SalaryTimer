@@ -43,8 +43,8 @@ struct RootTabView: View {
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
 
-            Tab("Profile", systemImage: "person.crop.circle") {
-                ProfileView()
+            Tab("Settings", systemImage: "gearshape") {
+                SettingsView()
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
         }
@@ -188,6 +188,15 @@ struct ToastView: View {
             .glassEffect(.regular.tint(.green.opacity(0.25)), in: .capsule)
             .padding(.top, 8)
             .allowsHitTesting(false)
+    }
+}
+
+/// Row fill that matches `GroupedCard` in both appearances (used by Records and Settings).
+struct RowBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        colorScheme == .dark ? Color.white.opacity(0.055) : Color(.secondarySystemGroupedBackground)
     }
 }
 

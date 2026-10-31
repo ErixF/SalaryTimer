@@ -256,15 +256,6 @@ private struct SessionRow: View {
     }
 }
 
-/// Row fill that matches `GroupedCard` in both appearances.
-private struct RowBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        colorScheme == .dark ? Color.white.opacity(0.055) : Color(.secondarySystemGroupedBackground)
-    }
-}
-
 // MARK: - Rank Badge
 
 /// Gold / silver / bronze `medal.fill` for 1–3, plain numbers for 4–10.
