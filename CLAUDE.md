@@ -75,21 +75,27 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 
 Design references (Eric's Figma exports, reference only — find alignment yourself, never measure pixels): `~/Downloads/Meter-outer-Portrait.png`, `Meter-outer-Portrait-fallback.png`, `Meter-outer-lanscape and standby.png`, `Meter-Inner-portrait.png`, `Meter-Inner-portrait-folded.png`, `Meter-inner-landscape.png`, `Meter-inner-landscape-folded.png`, `settings and hidden tools-portrait-outer.png`, `settings-inner-landscape.png`, `settings-inner-portrait-folded.png`, `Figma Tall Capsule.png`. Apple guidance: see memory `iphone-duo-guidelines` (HIG + dev page, read via JSON endpoint).
 
-### Decisions (agreed with Eric, 2026-10-31)
-| Pose | Layout | Menu | Action buttons |
-|---|---|---|---|
-| Outer portrait | Hero block (chip, title, timer, amount, rate) top; info block (detail, tiles, goal) bottom, filling the screen | System side bar: Meter / Records / Settings | In the side bar above the menu (Apple "Buttons – 48pt", Symbol, vertical axis; try tall 164pt capsule, else native size). Paused = two icon-only buttons (▶ Resume, archivebox Archive & Reset). If side buttons don't work for Eric → **fallback**: buttons in a row at the bottom of content, and Idle/Running use the same bottom placement |
-| Outer landscape | Existing black minimal meter (unchanged; tap shows/hides button) | Hidden | Bottom-right, as now |
-| Inner portrait | Bigger normal-iPhone layout | Bottom tab bar, 3 items | Wide button at bottom |
-| Inner portrait, folded | Chip + title stay; timer/amount/rate move up, info + button move down to clear the fold | Bottom tab bar, 3 items | Bottom |
-| Inner landscape | **Home** = Meter left ⅔ + Records right ⅓ (add padding under the goal card) | Side bar: **Home / Settings** (2 items) | Side bar, above the menu |
-| Inner landscape, folded | Meter left half, Records right half (fold clear) | Home / Settings (system places it) | Under the Meter, not on the side |
-- **Settings is a sheet only on regular-width layouts** (Duo inner display, any pose; iPad too). Duo outer portrait and regular iPhones keep Settings as a normal tab page. Sheet behavior: tapping the Settings menu item presents a sheet (X button, grabber, medium→large detents, swipe down or tap outside to close) instead of switching tabs; the previous tab stays selected.
-- **Hidden Tools**: trigger moves to **10 quick taps on the big amount** on every device and layout, **except the black landscape view** (its single tap still shows/hides the button). Remove the invisible top-right corner area. Sheet closes **only via an X** button (keep `interactiveDismissDisabled`).
-- **Wide screens**: remove "Go get an iPhone". The black landscape view is only for `verticalSizeClass == .compact` (phones in landscape, Duo outer landscape). iPad gets the inner-display layouts.
-- **Pose changes**: when switching from 3 items to Home/Settings, Records → Home (Home already shows Records). Settings sheet stays open across changes.
-- Running/Paused use the same layouts with existing state colors and buttons. Outer landscape image's "StandBy" label is just the outer landscape meter (StandBy itself shows the Live Activity).
-- No physical iPhone Duo: test in the **iPhone Duo simulator** (poses via Device Hub) and Xcode Previews (`Display: Inner/Outer`, `Orientation`; previews can't fold).
+### Decisions (agreed with Eric, 2026-10-31; revised after simulator review)
+**Two modes, switched by an "Alternative Look" toggle in Settings (`@AppStorage("display.alternativeLook")`, default OFF).**
+
+| Pose | Alternative Look **OFF** (default) | Alternative Look **ON** (original Duo design) |
+|---|---|---|
+| Outer portrait | Meter page, buttons in the side bar, menu Meter / Records / Settings (Settings = page) | Same |
+| Outer landscape | Black minimal meter (unchanged) | Same |
+| Inner portrait | Bigger normal-iPhone Meter, bottom tab bar (3 items), wide bottom button; Settings = page | Same, but Settings = sheet |
+| Inner portrait, folded | Chip + title stay; timer/amount/rate move up, info + button move down to clear the fold | Same (Settings = sheet) |
+| Inner landscape | Meter page alone, buttons in the side bar, 3-item menu, Settings = page | **Home** = Meter ⅔ + Records ⅓, menu **Home / Settings**, buttons in side bar, Settings = sheet |
+| Inner landscape, folded | Meter page split around the fold (proposed: hero left half, info + buttons right half) | Meter half (buttons under it) \| Records half |
+
+- **Meter centering (side-bar layouts):** don't pin hero to top and info to bottom — vertically center the whole column with a moderate gap, so the middle isn't hollow.
+- **Settings redesign (Apple Settings style), all Duo poses:** root list with colored icon rows → detail pages: **Currency** (symbol), **Income** (Income Type + fields + Your Rate Calculated), **Deductions**, **Session Goal**, plus the **Alternative Look** toggle row. Rows show the current value on the right. Inner display (flat/folded): `NavigationSplitView` sidebar list + detail side by side; outer: list → push with Back. (Open questions below on regular iPhones.)
+- **Settings sheet** behavior (Phase 2, already built) applies only when Alternative Look is ON: sheet on regular width, page on outer portrait, fold/unfold swaps between them.
+- **Hidden Tools**: 10 quick taps on the big amount, every layout except the black landscape view; closes only via X. (Done.)
+- **Wide screens**: no "Go get an iPhone"; black view only for `verticalSizeClass == .compact`. (Done.)
+- **Pose changes (Alternative Look ON)**: Records → Home when the menu becomes Home / Settings.
+- Running/Paused use the same layouts with existing state colors and buttons. Paused side-bar actions are icon-only (▶ Resume, archivebox Archive & Reset); fallback = buttons in a bottom row if Eric dislikes them.
+- No physical iPhone Duo: test in the iPhone Duo simulator. **Xcode Previews don't render Duo side bars** — side-bar layouts must be checked in the simulator.
+- **Open questions (asked 2026-10-31):** (1) regular iPhones also get the Apple-style Settings? (recommended yes); (2) show the Alternative Look toggle on regular iPhones with an "applies to large displays" note? (recommended yes); (3) default-mode inner landscape folded = hero left / info right? (4) Settings row icons: Currency `dollarsign` green, Income `briefcase.fill` blue, Deductions `percent` orange, Session Goal `flag.checkered` red, Alternative Look `rectangle.split.2x1` gray.
 
 ### API notes (verified against the iOS 27.1 SDK)
 - `ArrangementView { } secondary: { }` + `.arrangementViewStyle(.split.axes(...))` — **iOS 27.1**.
@@ -99,14 +105,17 @@ Design references (Eric's Figma exports, reference only — find alignment yours
 - App and widget minimum raised to **iOS 27.1** (Eric's call), so Duo APIs are used directly with no `#available` checks.
 - Size classes: outer = compact width; inner = regular width. Use scene/container geometry, never `userInterfaceIdiom` or screen size.
 
-### Phases (one per turn; build + preview check + commit on `iphone-duo`)
-- [x] **1. Foundation** (done: min iOS 27.1; black view only for `verticalSizeClass == .compact`, also drives tab-bar hiding; "Go get an iPhone" + 1000pt rule removed; Hidden Tools = 10 taps on the amount, X to close, corner area removed. **Deferred to Phase 3:** `LayoutMode` resolver and splitting the Meter into `MeterHero` / `MeterInfo` / `MeterActions`.) Original scope — `LayoutMode` resolver (size classes + width vs height + fold from reserved regions): `.phoneLandscape` (black), `.compact` (phone/outer portrait), `.regularPortrait`, `.regularLandscape`, each with `isFolded`. Black view only for vertical-compact; delete "Go get an iPhone" and the 1000pt rule (also in `RootTabView` tab-bar hiding). Split `ContentView` portrait into reusable `MeterHero`, `MeterInfo`, `MeterActions` views. Hidden Tools trigger → 10 taps on the amount (not in black view); remove corner area; Hidden Tools gets an X button.
-- [x] **2. Settings as a sheet (regular width only)** (done: `RootTabView` has `AppTab` selection; on regular width, selecting Settings reverts the selection and presents `SettingsView(isSheet: true)` — inline title, X, medium/large detents, drag indicator. Unfolding while on the Settings page switches to Meter and opens the sheet; folding while the sheet is open closes it and opens the Settings page. Also: Meter adds top clearance when the top safe area is ~0, for the Duo outer display.) Original scope — tab-selection interception (3-item and 2-item menus) presents `SettingsView` in a sheet with X, detents, tap-outside dismiss; keep the previous tab selected.
-- [~] **3. Outer portrait** (first pass, awaiting simulator check: `VerticalBarProbe` reads `toolbarVerticalEdge` into `barsOnSide`; when true and not vertically compact, actions become `.primaryAction` toolbar items (Start blue / Pause amber / Resume green `.glassProminent`, Archive & Reset glass; title + symbol each) and the in-content buttons are hidden; hero stays top, info pinned to bottom with a Spacer; first-use hint shown under the info when paused. Xcode Previews do NOT render side bars — verify in the iPhone Duo simulator. Tall 164pt capsule not attempted: toolbar items with custom frames stop being presented vertically. `LayoutMode`/view split still pending.) Original scope — hero top / info bottom filling the screen; action buttons as toolbar items in the side bar (`toolbarVerticalEdge` non-nil), try the tall capsule; Paused = two icon buttons. Keep a `useBottomActions` switch for the fallback.
-- [ ] **4. Inner portrait (flat + folded)** — scaled-up layout, bottom tab bar, wide bottom button; when folded, read the horizontal division and push hero up / info down around it.
-- [ ] **5. Inner landscape Home** — Meter ⅔ + Records ⅓, menu becomes Home / Settings, side-bar actions, Records→Home mapping on pose change.
-- [ ] **6. Inner landscape folded** — `ArrangementView` split halves (Meter + actions below | Records), fold clear.
-- [ ] **7. Polish** — light/dark, Dynamic Type, Running/Paused passes in every pose; write the simulator testing guide here; update rules sections above and move this round to Progress.
+### Phases (one per turn; build + check + commit on `iphone-duo`)
+- [x] **1. Foundation** — min iOS 27.1; black view only for vertical-compact (also tab-bar hiding); "Go get an iPhone" removed; Hidden Tools = 10 taps on the amount, X to close. Meter adds top clearance when the top safe area is ~0 (Duo outer).
+- [x] **2. Settings as a sheet (regular width)** — `RootTabView` `AppTab` selection interception, `SettingsView(isSheet:)` with X + detents, fold/unfold swaps sheet ↔ page. **To be gated behind Alternative Look ON in phase 5.**
+- [x] **3. Side-bar actions** — `VerticalBarProbe` (`toolbarVerticalEdge`) → `barsOnSide`; actions become `.primaryAction` toolbar items (Start blue, Pause amber, Resume green `.glassProminent`; Archive & Reset glass), in-content buttons hidden, first-use hint under the info. Verified in simulator (outer portrait + inner landscape).
+- [ ] **4. Meter centering** — side-bar layouts: center the column vertically with a moderate hero↔info gap (replace the top/bottom pinning Spacer).
+- [ ] **5. Settings redesign + Alternative Look toggle** — Apple-style root list + detail pages (`NavigationSplitView`), value on each row, toggle row; gate the Phase 2 sheet behavior on the toggle.
+- [ ] **6. Inner portrait (flat + folded)** — both modes: scaled layout, bottom tab bar; when folded, read the horizontal `reservedRegions(kind: .division)` and push hero up / info + button down.
+- [ ] **7. Default-mode inner landscape folded** — split the Meter around the fold (pending answer to open question 3).
+- [ ] **8. Alternative Look: inner landscape Home** — Meter ⅔ + Records ⅓, Home / Settings menu, Records → Home mapping.
+- [ ] **9. Alternative Look: inner landscape folded** — `ArrangementView` split halves (Meter + buttons below | Records).
+- [ ] **10. Polish** — light/dark, Dynamic Type, Running/Paused in every pose; simulator testing guide; update rules and move this round to Progress.
 
 ## Backlog (next rounds)
 
