@@ -41,7 +41,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 ### Records
 - **Model:** `unitPrice` = session average net/sec; `startDate` and `grossEarned` are optional (nil for pre-2.3 records). Changing deductions never rewrites saved records.
 - **Grouping:** Today / Yesterday / per day for 30 days, then per month. Section index labels: day number, or short month (`Sep`, `Sep ’25` outside current year). Collapsing hides rows only — header and index entry stay.
-- **Summary** cards sit above the list (not in its scroll area), so rows never pass behind them; the list's top 24pt is a gradient mask so rows fade out before reaching the cards. List has a 30pt trailing content margin to clear the index bar. Cards: Total earned / Total time (same format as rows: `3min 6s`, `1h 42min`) / Sessions. **Top 10:** `medal.fill` gold/silver/bronze for 1–3, plain numbers after, no "Personal best" chip.
+- **Summary** cards sit above the list (not in its scroll area), so rows never pass behind them; the list's top 24pt is a gradient mask (`topFade()`, also used on Top 10 under the segmented control) so rows fade out before reaching what's above. List has a 30pt trailing content margin to clear the index bar. Cards: Total earned / Total time (same format as rows: `3min 6s`, `1h 42min`) / Sessions. **Top 10:** `medal.fill` gold/silver/bronze for 1–3, plain numbers after, no "Personal best" chip.
 
 ### Live Activity
 - Moving parts are only Apple's built-in timer views: the elapsed **timer** and a timer-driven `ProgressView` **goal bar** ($0 → goal over the whole session; hidden without a goal; green ✓ beside "Goal $X" once reached as of the last app update).

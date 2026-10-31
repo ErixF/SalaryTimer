@@ -67,8 +67,6 @@ private struct AllRecordsList: View {
 
     /// Trailing content margin that keeps rows clear of the section index bar.
     private let indexBarClearance: CGFloat = 30
-    /// Height of the band under the summary cards where rows fade out as they scroll up.
-    private let topFadeHeight: CGFloat = 24
 
     let currencySymbol: String
 
@@ -109,16 +107,7 @@ private struct AllRecordsList: View {
             .listSectionIndexVisibility(.visible)
             // Extra trailing room so rows don't crowd the section index bar.
             .contentMargins(.trailing, indexBarClearance, for: .scrollContent)
-            // Start content below the fade band so nothing is faded at rest.
-            .contentMargins(.top, topFadeHeight, for: .scrollContent)
-            // Rows fade out within the band, before they reach the cards.
-            .mask {
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                        .frame(height: topFadeHeight)
-                    Color.black
-                }
-            }
+            .topFade()
         }
     }
 
@@ -236,6 +225,25 @@ private struct TopTenList: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        .topFade()
+    }
+}
+
+// MARK: - Top fade
+
+private extension View {
+    /// Rows fade out in a band at the top of the list, so they disappear before reaching
+    /// whatever sits above it (summary cards or the segmented control). Content starts below
+    /// the band, so nothing looks faded at rest.
+    func topFade(height: CGFloat = 24) -> some View {
+        contentMargins(.top, height, for: .scrollContent)
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: height)
+                    Color.black
+                }
+            }
     }
 }
 
