@@ -67,13 +67,21 @@ private struct AllRecordsList: View {
 
     /// Trailing content margin that keeps rows clear of the section index bar.
     private let indexBarClearance: CGFloat = 30
+    /// Height of the band under the summary cards where rows fade out as they scroll up.
+    private let topFadeHeight: CGFloat = 24
 
     let currencySymbol: String
 
     var body: some View {
         let groups = SessionGrouping.groups(sessions)
 
-        List {
+        VStack(spacing: 0) {
+            // Outside the list, so rows never scroll behind the cards.
+            SummaryStrip(sessions: sessions, currencySymbol: currencySymbol)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 4)
+
+            List {
             ForEach(groups) { group in
                 Section {
                     // Always one ForEach (empty when collapsed) so the List structure stays static.
@@ -96,18 +104,22 @@ private struct AllRecordsList: View {
                 .sectionIndexLabel(group.indexLabel)
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .listSectionIndexVisibility(.visible)
-        // Extra trailing room so the cards don't crowd the section index bar.
-        .contentMargins(.trailing, indexBarClearance, for: .scrollContent)
-        // Summary cards pinned above the list; rows scroll under them with the system edge effect.
-        .safeAreaBar(edge: .top) {
-            SummaryStrip(sessions: sessions, currencySymbol: currencySymbol)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .listSectionIndexVisibility(.visible)
+            // Extra trailing room so rows don't crowd the section index bar.
+            .contentMargins(.trailing, indexBarClearance, for: .scrollContent)
+            // Start content below the fade band so nothing is faded at rest.
+            .contentMargins(.top, topFadeHeight, for: .scrollContent)
+            // Rows fade out within the band, before they reach the cards.
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: topFadeHeight)
+                    Color.black
+                }
+            }
         }
-        .scrollEdgeEffectStyle(.soft, for: .top)
     }
 
     private func groupHeader(_ group: SessionDayGroup) -> some View {
