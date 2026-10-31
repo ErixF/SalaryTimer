@@ -23,7 +23,7 @@ struct SalaryTimerApp: App {
 
 struct RootTabView: View {
     enum AppTab: Hashable {
-        case meter, records, settings
+        case home, meter, records, settings
     }
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -33,6 +33,13 @@ struct RootTabView: View {
 
     @State private var selection: AppTab = .meter
     @State private var showsSettingsSheet = false
+    @State private var isLandscape = false
+
+    /// Alternative Look on a wide landscape screen (Duo inner landscape, iPad landscape): the menu
+    /// becomes Home / Settings, and Home combines the Meter and Records.
+    private var usesHome: Bool {
+        alternativeLook && horizontalSizeClass == .regular && verticalSizeClass == .regular && isLandscape
+    }
 
     /// With Alternative Look on, regular width (Duo inner display, iPad) shows Settings as a sheet
     /// over the current tab. Otherwise, and on compact width, Settings is a normal tab page.
@@ -45,14 +52,20 @@ struct RootTabView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            Tab("Meter", systemImage: "timer", value: AppTab.meter) {
-                ContentView()
-                    .toolbar(tabBarVisibility, for: .tabBar)
-            }
+            if usesHome {
+                Tab("Home", systemImage: "house", value: AppTab.home) {
+                    HomeView()
+                }
+            } else {
+                Tab("Meter", systemImage: "timer", value: AppTab.meter) {
+                    ContentView()
+                        .toolbar(tabBarVisibility, for: .tabBar)
+                }
 
-            Tab("Records", systemImage: "trophy", value: AppTab.records) {
-                SessionLogView()
-                    .toolbar(tabBarVisibility, for: .tabBar)
+                Tab("Records", systemImage: "trophy", value: AppTab.records) {
+                    SessionLogView()
+                        .toolbar(tabBarVisibility, for: .tabBar)
+                }
             }
 
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
@@ -65,6 +78,19 @@ struct RootTabView: View {
             guard current == .settings, settingsIsSheet else { return }
             selection = previous
             showsSettingsSheet = true
+        }
+        .onGeometryChange(for: Bool.self) { proxy in
+            proxy.size.width > proxy.size.height
+        } action: { landscape in
+            isLandscape = landscape
+        }
+        .onChange(of: usesHome, initial: true) { _, home in
+            // Meter/Records ⇄ Home when the menu changes shape; Settings stays where it is.
+            if home, selection == .meter || selection == .records {
+                selection = .home
+            } else if !home, selection == .home {
+                selection = .meter
+            }
         }
         .onChange(of: horizontalSizeClass) { syncSettingsPresentation() }
         .onChange(of: alternativeLook) { syncSettingsPresentation() }
@@ -86,6 +112,30 @@ struct RootTabView: View {
                 showsSettingsSheet = false
                 selection = .settings
             }
+    }
+}
+
+/// Alternative Look's combined Home: Meter on the left two-thirds, Records on the right third.
+/// When the inner display is half open, each takes one side of the fold instead.
+struct HomeView: View {
+    private let foldClearance: CGFloat = 16
+
+    var body: some View {
+        GeometryReader { geo in
+            let fold = geo.verticalFold
+            let meterWidth = fold.map { max(0, $0.minX - foldClearance) } ?? geo.size.width * 2 / 3
+            let gap = fold.map { $0.width + foldClearance * 2 } ?? 0
+
+            HStack(spacing: 0) {
+                ContentView()
+                    .frame(width: meterWidth)
+                Color.clear
+                    .frame(width: gap)
+                SessionLogView()
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .background { ScreenBackground().ignoresSafeArea() }
     }
 }
 
