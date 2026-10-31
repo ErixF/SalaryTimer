@@ -21,25 +21,46 @@ struct SessionLogView: View {
 
     @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
 
+    /// Inside Alternative Look's Home. No `NavigationStack` then: its UIKit container reserves
+    /// the side bar's width even though Records sits on the far side, which squeezed the column.
+    /// The title is drawn in the content instead.
+    var isEmbedded = false
+
     var body: some View {
-        NavigationStack {
-            GeometryReader { geo in
-                if let fold = geo.verticalFold {
-                    foldedLayout(size: geo.size, fold: fold, topInset: geo.safeAreaInsets.top)
-                } else {
-                    segmentedLayout
-                }
+        if isEmbedded {
+            content
+        } else {
+            NavigationStack {
+                content
+                    .toolbarBackground(.hidden, for: .navigationBar)
             }
-            .background {
-                ScreenBackground()
-                    .ignoresSafeArea()
-            }
-            .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
 
-    private var segmentedLayout: some View {
-        VStack(spacing: 0) {
+    private var content: some View {
+        GeometryReader { geo in
+            if let fold = geo.verticalFold {
+                foldedLayout(size: geo.size, fold: fold, topInset: geo.safeAreaInsets.top)
+            } else {
+                segmentedLayout(topInset: geo.safeAreaInsets.top)
+            }
+        }
+        .background {
+            ScreenBackground()
+                .ignoresSafeArea()
+        }
+    }
+
+    private func segmentedLayout(topInset: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if isEmbedded {
+                Text(segment == .all ? "All Records" : "Top 10")
+                    .font(.largeTitle.bold())
+                    .padding(.horizontal, 20)
+                    .padding(.top, max(8, minimumTopClearance - topInset))
+                    .padding(.bottom, 8)
+            }
+
             Picker("", selection: $segment) {
                 Text("All Records").tag(Segment.all)
                 Text("Top 10").tag(Segment.top)
@@ -51,7 +72,7 @@ struct SessionLogView: View {
 
             switch segment {
             case .all:
-                AllRecordsList(currencySymbol: currencySymbol)
+                AllRecordsList(currencySymbol: currencySymbol, stacksSummary: isEmbedded)
             case .top:
                 TopTenList(currencySymbol: currencySymbol)
             }
@@ -108,13 +129,14 @@ private struct AllRecordsList: View {
     @State private var collapsed: Set<Date> = []
 
     let currencySymbol: String
+    var stacksSummary = false
 
     var body: some View {
         let groups = SessionGrouping.groups(sessions)
 
         VStack(spacing: 0) {
             // Outside the list, so rows never scroll behind the cards.
-            SummaryStrip(sessions: sessions, currencySymbol: currencySymbol)
+            SummaryStrip(sessions: sessions, currencySymbol: currencySymbol, isStacked: stacksSummary)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 4)
 
@@ -197,15 +219,27 @@ private struct AllRecordsList: View {
 private struct SummaryStrip: View {
     let sessions: [SalarySession]
     let currencySymbol: String
+    /// Two rows (earned + time, then sessions) for narrow columns like the Home's Records third.
+    var isStacked = false
 
     var body: some View {
         let total = sessions.reduce(0) { $0 + $1.totalEarned }
         let seconds = sessions.reduce(0) { $0 + $1.duration }
 
-        HStack(spacing: 10) {
-            tile("Total earned", SessionFormatters.money(total, symbol: currencySymbol))
-            tile("Total time", SessionFormatters.duration(seconds))
-            tile("Sessions", "\(sessions.count)")
+        if isStacked {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    tile("Total earned", SessionFormatters.money(total, symbol: currencySymbol))
+                    tile("Total time", SessionFormatters.duration(seconds))
+                }
+                inlineTile("Sessions", "\(sessions.count)")
+            }
+        } else {
+            HStack(spacing: 10) {
+                tile("Total earned", SessionFormatters.money(total, symbol: currencySymbol))
+                tile("Total time", SessionFormatters.duration(seconds))
+                tile("Sessions", "\(sessions.count)")
+            }
         }
     }
 
@@ -224,6 +258,26 @@ private struct SummaryStrip: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .padding(.top, 3)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// One-line tile: label on the left, value on the right (like the Meter's goal card).
+    private func inlineTile(_ label: String, _ value: String) -> some View {
+        GroupedCard {
+            HStack(alignment: .firstTextBaseline) {
+                Text(label)
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.6)
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(value)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
         }
         .accessibilityElement(children: .combine)
     }

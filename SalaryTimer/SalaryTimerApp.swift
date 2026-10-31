@@ -35,8 +35,8 @@ struct RootTabView: View {
     @State private var showsSettingsSheet = false
     @State private var isLandscape = false
 
-    /// Alternative Look on a wide landscape screen (Duo inner landscape, iPad landscape): the menu
-    /// becomes Home / Settings, and Home combines the Meter and Records.
+    /// Alternative Look on a wide landscape screen (Duo inner landscape, iPad landscape): Home
+    /// combines Records and the Meter, the menu is hidden, and Settings is a side-bar button.
     private var usesHome: Bool {
         alternativeLook && horizontalSizeClass == .regular && verticalSizeClass == .regular && isLandscape
     }
@@ -51,26 +51,12 @@ struct RootTabView: View {
     }
 
     var body: some View {
-        TabView(selection: $selection) {
+        Group {
             if usesHome {
-                Tab("Home", systemImage: "house", value: AppTab.home) {
-                    HomeView()
-                }
+                // No menu at all: Home is the only screen, Settings opens from its side bar.
+                HomeView(onOpenSettings: { showsSettingsSheet = true })
             } else {
-                Tab("Meter", systemImage: "timer", value: AppTab.meter) {
-                    ContentView()
-                        .toolbar(tabBarVisibility, for: .tabBar)
-                }
-
-                Tab("Records", systemImage: "trophy", value: AppTab.records) {
-                    SessionLogView()
-                        .toolbar(tabBarVisibility, for: .tabBar)
-                }
-            }
-
-            Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
-                SettingsView()
-                    .toolbar(tabBarVisibility, for: .tabBar)
+                tabs
             }
         }
         .onChange(of: selection) { previous, current in
@@ -101,6 +87,25 @@ struct RootTabView: View {
         }
     }
 
+    private var tabs: some View {
+        TabView(selection: $selection) {
+            Tab("Meter", systemImage: "timer", value: AppTab.meter) {
+                ContentView()
+                    .toolbar(tabBarVisibility, for: .tabBar)
+            }
+
+            Tab("Records", systemImage: "trophy", value: AppTab.records) {
+                SessionLogView()
+                    .toolbar(tabBarVisibility, for: .tabBar)
+            }
+
+            Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
+                SettingsView()
+                    .toolbar(tabBarVisibility, for: .tabBar)
+            }
+        }
+    }
+
     /// Keeps Settings open across fold/unfold and Alternative Look changes, swapping page ↔ sheet.
     private func syncSettingsPresentation() {
             if settingsIsSheet, selection == .settings {
@@ -115,23 +120,26 @@ struct RootTabView: View {
     }
 }
 
-/// Alternative Look's combined Home: Meter on the left two-thirds, Records on the right third.
-/// When the inner display is half open, each takes one side of the fold instead.
+/// Alternative Look's combined Home: Records on the left third, Meter on the right two-thirds,
+/// next to the side bar that holds its actions. When the inner display is half open, each takes
+/// one side of the fold instead. There's no menu here; Settings is a side-bar button.
 struct HomeView: View {
+    let onOpenSettings: @MainActor () -> Void
+
     private let foldClearance: CGFloat = 16
 
     var body: some View {
         GeometryReader { geo in
             let fold = geo.verticalFold
-            let meterWidth = fold.map { max(0, $0.minX - foldClearance) } ?? geo.size.width * 2 / 3
+            let recordsWidth = fold.map { max(0, $0.minX - foldClearance) } ?? geo.size.width / 3
             let gap = fold.map { $0.width + foldClearance * 2 } ?? 0
 
             HStack(spacing: 0) {
-                ContentView()
-                    .frame(width: meterWidth)
+                SessionLogView(isEmbedded: true)
+                    .frame(width: recordsWidth)
                 Color.clear
                     .frame(width: gap)
-                SessionLogView()
+                ContentView(onOpenSettings: onOpenSettings)
                     .frame(maxWidth: .infinity)
             }
         }

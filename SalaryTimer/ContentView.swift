@@ -22,6 +22,9 @@ struct ContentView: View {
     /// Set after the first successful Archive & Reset; hides the first-use hint for good.
     @AppStorage("meter.hasArchived") private var hasArchived = false
 
+    /// Set by Alternative Look's Home, which has no menu: adds a Settings button to the side bar.
+    var onOpenSettings: (@MainActor () -> Void)? = nil
+
     // MARK: - Local UI state
     @State private var showsHiddenTools = false
     /// True when iOS presents bars on the side (Duo outer display, Duo inner landscape).
@@ -127,6 +130,11 @@ struct ContentView: View {
             .toolbar {
                 if barsOnSide && verticalSizeClass != .compact {
                     sideBarActions
+                }
+                if let onOpenSettings {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button("Settings", systemImage: "gearshape") { onOpenSettings() }
+                    }
                 }
             }
             .sheet(isPresented: $showsHiddenTools) {
