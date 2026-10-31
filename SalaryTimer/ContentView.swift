@@ -35,6 +35,7 @@ struct ContentView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(SalaryTimerStore.self) private var timerStore
     @Query(sort: \SalarySession.endDate, order: .reverse) private var sessions: [SalarySession]
 
@@ -44,6 +45,16 @@ struct ContentView: View {
     private let minimumTopClearance: CGFloat = 32
     /// Gap between the hero and the info cards when the column is centered (side-bar layouts).
     private let sideBarHeroGap: CGFloat = 56
+    /// Wide portrait (Duo inner display, iPad): cap the column and enlarge the hero text.
+    private let wideColumnMaxWidth: CGFloat = 640
+    private let wideButtonMaxWidth: CGFloat = 440
+    private let wideHeroScale: CGFloat = 1.35
+    /// Breathing room between the content and the fold when the inner display is half open.
+    private let foldClearance: CGFloat = 20
+
+    /// Wide portrait gets the "bigger iPhone" treatment; side-bar layouts keep normal sizes.
+    private var isWidePortrait: Bool { horizontalSizeClass == .regular && !barsOnSide }
+    private var heroScale: CGFloat { isWidePortrait ? wideHeroScale : 1 }
     private let toastDuration: Duration = .milliseconds(2600)
     private let titleOptions = [
         "Getting Paid to Exist",
@@ -94,7 +105,11 @@ struct ContentView: View {
                         if verticalSizeClass == .compact {
                             landscapeLayout(width: geo.size.width, now: timeline.date)
                         } else {
-                            portraitLayout(now: timeline.date, height: geo.size.height, topInset: geo.safeAreaInsets.top)
+                            if let fold = horizontalFold(in: geo), !barsOnSide {
+                                foldedPortraitLayout(now: timeline.date, size: geo.size, fold: fold, topInset: geo.safeAreaInsets.top)
+                            } else {
+                                portraitLayout(now: timeline.date, height: geo.size.height, topInset: geo.safeAreaInsets.top)
+                            }
                         }
                     }
                 }
@@ -120,8 +135,9 @@ struct ContentView: View {
     private func portraitLayout(now: Date, height: CGFloat, topInset: CGFloat) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                // Side-bar layouts center the whole column so the middle isn't hollow.
-                if barsOnSide {
+                // Side-bar and wide-portrait layouts center the column so the middle isn't hollow
+                // (wide portrait keeps its button at the bottom).
+                if barsOnSide || isWidePortrait {
                     Spacer(minLength: 0)
                 }
 
@@ -162,9 +178,11 @@ struct ContentView: View {
                     controlSection
                 }
             }
+            .frame(maxWidth: isWidePortrait ? wideColumnMaxWidth : .infinity)
             .padding(.horizontal, 20)
             .padding(.top, max(8, minimumTopClearance - topInset))
             .padding(.bottom, 16)
+            .frame(maxWidth: .infinity)
             .frame(minHeight: height)
         }
         .scrollBounceBehavior(.basedOnSize)
@@ -173,9 +191,73 @@ struct ContentView: View {
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
+    // MARK: - Folded portrait
+
+    /// The fold when the inner display is half open in portrait (a band across the screen).
+    private func horizontalFold(in geo: GeometryProxy) -> CGRect? {
+        geo.reservedRegions(kind: .division)
+            .first { $0.isActive && $0.frame.width > $0.frame.height }?
+            .frame
+    }
+
+    /// Half-open inner display: chip and title stay at the top, the hero moves up to sit just
+    /// above the fold, and the info cards and button move down below it.
+    private func foldedPortraitLayout(now: Date, size: CGSize, fold: CGRect, topInset: CGFloat) -> some View {
+        let topPadding = max(8, minimumTopClearance - topInset)
+        let upperHeight = max(0, fold.minY - foldClearance - topPadding)
+        let lowerHeight = max(0, size.height - fold.maxY - foldClearance - 16)
+
+        return VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                VStack(spacing: 12) {
+                    StateChip(state: state)
+                    screenTitle
+                }
+                Spacer(minLength: 12)
+                heroSection(now: now)
+            }
+            .frame(height: upperHeight)
+
+            Color.clear
+                .frame(height: fold.height + foldClearance * 2)
+
+            VStack(spacing: 0) {
+                infoCards(now: now)
+                Spacer(minLength: 12)
+                controlSection
+            }
+            .frame(height: lowerHeight)
+        }
+        .frame(maxWidth: wideColumnMaxWidth)
+        .padding(.horizontal, 20)
+        .padding(.top, topPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+    }
+
+    /// Detail card, today/last-session tiles and the goal card.
+    private func infoCards(now: Date) -> some View {
+        VStack(spacing: 0) {
+            detailCard(now: now)
+
+            statsRow
+                .padding(.top, 18)
+
+            if let goal = SessionGoal.amount(from: sessionGoalText) {
+                GoalCard(
+                    earned: timerStore.netEarned(at: now),
+                    goal: goal,
+                    state: state,
+                    format: { amountText($0) }
+                )
+                .padding(.top, 10)
+            }
+        }
+    }
+
     private var screenTitle: some View {
         Text(titleOptions[titleIndex])
-            .font(.system(size: 22, weight: .bold, design: .rounded))
+            .font(.system(size: 22 * heroScale, weight: .bold, design: .rounded))
             .foregroundStyle(.primary)
             .multilineTextAlignment(.center)
             .lineLimit(2)
@@ -195,7 +277,7 @@ struct ContentView: View {
         let amount = timerStore.netEarned(at: now)
         return VStack(spacing: 6) {
             Text(elapsedClockText(timerStore.elapsed(at: now)))
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 17 * heroScale, weight: .semibold))
                 .tracking(1.2)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
@@ -203,7 +285,7 @@ struct ContentView: View {
             // 10 quick taps on the amount open Hidden Tools (works in every layout
             // except the black landscape view, where a tap shows/hides its button).
             Text(amountText(amount))
-                .font(.system(size: 64, weight: .heavy, design: .rounded))
+                .font(.system(size: 64 * heroScale, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -214,7 +296,7 @@ struct ContentView: View {
                 .onTapGesture(perform: registerHiddenResetTap)
 
             Text("≈ \(perSecondText(earningPerSecond)) / sec")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 15 * heroScale, weight: .semibold))
                 .monospacedDigit()
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
@@ -307,6 +389,8 @@ struct ContentView: View {
                         }
                     }
                 }
+                // Wide portrait: the button row is narrower than the cards, centered.
+                .frame(maxWidth: isWidePortrait ? wideButtonMaxWidth : .infinity)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: state)
