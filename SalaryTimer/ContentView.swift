@@ -37,6 +37,8 @@ struct ContentView: View {
 
     /// Fixed slot above the buttons so the hint never moves them.
     private let hintSlotHeight: CGFloat = 34
+    /// Minimum gap between the top screen edge and the state chip when there's no status bar above it.
+    private let minimumTopClearance: CGFloat = 32
     private let toastDuration: Duration = .milliseconds(2600)
     private let titleOptions = [
         "Getting Paid to Exist",
@@ -85,7 +87,7 @@ struct ContentView: View {
                         if verticalSizeClass == .compact {
                             landscapeLayout(width: geo.size.width, now: timeline.date)
                         } else {
-                            portraitLayout(now: timeline.date, height: geo.size.height)
+                            portraitLayout(now: timeline.date, height: geo.size.height, topInset: geo.safeAreaInsets.top)
                         }
                     }
                 }
@@ -101,7 +103,9 @@ struct ContentView: View {
 
     // MARK: - Portrait
 
-    private func portraitLayout(now: Date, height: CGFloat) -> some View {
+    /// `topInset` is the top safe area. On the Duo outer display the status bar sits on the side,
+    /// so the top inset is near zero and the content needs its own breathing room.
+    private func portraitLayout(now: Date, height: CGFloat, topInset: CGFloat) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
                 VStack(spacing: 12) {
@@ -133,7 +137,7 @@ struct ContentView: View {
                 controlSection
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, max(8, minimumTopClearance - topInset))
             .padding(.bottom, 16)
             .frame(minHeight: height)
         }
