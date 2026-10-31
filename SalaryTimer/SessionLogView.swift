@@ -20,30 +20,73 @@ struct SessionLogView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("", selection: $segment) {
-                    Text("All Records").tag(Segment.all)
-                    Text("Top 10").tag(Segment.top)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.top, 4)
-                .padding(.bottom)
-
-                switch segment {
-                case .all:
-                    AllRecordsList(currencySymbol: currencySymbol)
-                case .top:
-                    TopTenList(currencySymbol: currencySymbol)
+            GeometryReader { geo in
+                if let fold = geo.verticalFold {
+                    foldedLayout(size: geo.size, fold: fold)
+                } else {
+                    segmentedLayout
                 }
             }
             .background {
                 ScreenBackground()
                     .ignoresSafeArea()
             }
-            .navigationTitle(segment == .all ? "All Records" : "Top 10")
-            .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var segmentedLayout: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $segment) {
+                Text("All Records").tag(Segment.all)
+                Text("Top 10").tag(Segment.top)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.top, 4)
+            .padding(.bottom)
+
+            switch segment {
+            case .all:
+                AllRecordsList(currencySymbol: currencySymbol)
+            case .top:
+                TopTenList(currencySymbol: currencySymbol)
+            }
+        }
+        .navigationTitle(segment == .all ? "All Records" : "Top 10")
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    /// Half-open inner display in landscape: All Records on the left half, Top 10 on the right,
+    /// the fold clear between them. No segmented control needed.
+    private func foldedLayout(size: CGSize, fold: CGRect) -> some View {
+        let clearance: CGFloat = 16
+        return HStack(spacing: 0) {
+            pane("All Records") {
+                AllRecordsList(currencySymbol: currencySymbol)
+            }
+            .frame(width: max(0, fold.minX - clearance))
+
+            Color.clear
+                .frame(width: fold.width + clearance * 2)
+
+            pane("Top 10") {
+                TopTenList(currencySymbol: currencySymbol)
+            }
+            .frame(width: max(0, size.width - fold.maxX - clearance))
+        }
+        .navigationTitle("Records")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func pane<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.largeTitle.bold())
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+            content()
         }
     }
 }

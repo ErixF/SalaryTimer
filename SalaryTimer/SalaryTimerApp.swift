@@ -233,6 +233,18 @@ struct RowBackground: View {
     }
 }
 
+extension GeometryProxy {
+    /// The fold when the Duo inner display is half open in portrait (a band across the screen).
+    var horizontalFold: CGRect? {
+        reservedRegions(kind: .division).first { $0.isActive && $0.frame.width > $0.frame.height }?.frame
+    }
+
+    /// The fold when the Duo inner display is half open in landscape (a band down the middle).
+    var verticalFold: CGRect? {
+        reservedRegions(kind: .division).first { $0.isActive && $0.frame.height > $0.frame.width }?.frame
+    }
+}
+
 extension Color {
     init(hex: UInt32) {
         self.init(

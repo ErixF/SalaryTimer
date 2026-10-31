@@ -110,8 +110,10 @@ struct ContentView: View {
                         if verticalSizeClass == .compact {
                             landscapeLayout(width: geo.size.width, now: timeline.date)
                         } else {
-                            if let fold = horizontalFold(in: geo), !barsOnSide {
+                            if let fold = geo.horizontalFold, !barsOnSide {
                                 foldedPortraitLayout(now: timeline.date, size: geo.size, fold: fold, topInset: geo.safeAreaInsets.top)
+                            } else if let fold = geo.verticalFold {
+                                foldedLandscapeLayout(now: timeline.date, size: geo.size, fold: fold)
                             } else {
                                 portraitLayout(now: timeline.date, height: geo.size.height, topInset: geo.safeAreaInsets.top)
                             }
@@ -198,13 +200,6 @@ struct ContentView: View {
 
     // MARK: - Folded portrait
 
-    /// The fold when the inner display is half open in portrait (a band across the screen).
-    private func horizontalFold(in geo: GeometryProxy) -> CGRect? {
-        geo.reservedRegions(kind: .division)
-            .first { $0.isActive && $0.frame.width > $0.frame.height }?
-            .frame
-    }
-
     /// Half-open inner display: chip and title stay at the top, the hero moves up to sit just
     /// above the fold, and the info cards and button move down below it.
     private func foldedPortraitLayout(now: Date, size: CGSize, fold: CGRect, topInset: CGFloat) -> some View {
@@ -237,6 +232,39 @@ struct ContentView: View {
         .padding(.horizontal, 20)
         .padding(.top, topPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+    }
+
+    /// Half-open inner display in landscape: the hero on the left half, the info cards on the
+    /// right half, the fold clear between them. Buttons stay in the side bar.
+    private func foldedLandscapeLayout(now: Date, size: CGSize, fold: CGRect) -> some View {
+        let leftWidth = max(0, fold.minX - foldClearance)
+        let rightWidth = max(0, size.width - fold.maxX - foldClearance)
+
+        return HStack(spacing: 0) {
+            VStack(spacing: 12) {
+                StateChip(state: state)
+                screenTitle
+                heroSection(now: now)
+                    .padding(.top, 10)
+            }
+            .padding(.horizontal, 20)
+            .frame(width: leftWidth)
+
+            Color.clear
+                .frame(width: fold.width + foldClearance * 2)
+
+            VStack(spacing: 0) {
+                infoCards(now: now)
+                if state == .paused && !hasArchived {
+                    firstUseHint
+                        .padding(.top, 12)
+                }
+            }
+            .padding(.horizontal, 20)
+            .frame(width: rightWidth)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
