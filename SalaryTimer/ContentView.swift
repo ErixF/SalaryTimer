@@ -102,11 +102,13 @@ struct ContentView: View {
                     VerticalBarProbe(isVertical: $barsOnSide)
 
                     // Toast sits at the top; when half-folded in landscape, over the left half so
-                    // it never floats on the hinge.
+                    // it never floats on the hinge. Kept above the Meter content (the state chip
+                    // sits at the same height and would otherwise cover it).
                     toast
                         .frame(width: geo.verticalFold.map { max(0, $0.minX) })
                         .frame(maxWidth: .infinity, maxHeight: .infinity,
                                alignment: geo.verticalFold == nil ? .top : .topLeading)
+                        .zIndex(1)
 
 
                     // Values are derived from timestamps, so a 1s timeline is all the ticking needed.
