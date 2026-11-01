@@ -45,8 +45,10 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 
 ### Live Activity
 - Moving parts are only Apple's built-in timer views: the elapsed **timer** and a timer-driven `ProgressView` **goal bar** ($0 → goal over the whole session; hidden without a goal; green ✓ beside "Goal $X" once reached as of the last app update).
-- **Lock Screen / expanded:** RUNNING/PAUSED chip + rate (`≈ $50.00/hr · $0.0139/sec`), timer as hero, goal bar. System background, 14pt margins.
-- **Compact:** live timer left, state-colored capsule with whole-unit rate (`$50/hr`) right. **Minimal:** currency symbol in a state-colored circle. Keyline follows state. Running green, paused amber.
+- **Lock Screen / expanded:** RUNNING/PAUSED chip + rate (`$50.00/hr ≈ $0.0139/sec`), timer as hero, goal bar. System background, 14pt margins.
+- **Goal ring** (`GoalRing`): state-colored circular `ProgressView` filling $0 → goal (timer-driven like the bar), currency symbol inside. No goal = full ring in the state color. No timer inside (minimal is ~36pt; `1:02:03` won't fit).
+- **Compact:** live timer left, goal ring right (replaced the `$50/hr` capsule). **Minimal** (shown when another app's Live Activity is also running): goal ring. Keyline follows state. Running green, paused amber.
+- **Apple Watch Smart Stack / CarPlay:** `.supplementalActivityFamilies([.small])`; `LockScreenView` switches on `activityFamily` to `SmallMeterView` (big ring left; state, live timer, `$50/hr` right; no buttons). Without `.small` the Watch would combine the compact leading/trailing views. In Xcode previews use View Style "Content (Smart Stack)" + Dark Appearance (light renders white text on white).
 - The amount itself can't tick on the Lock Screen (see gotchas); it only updates when the app pushes (15s loop while the app runs, plus on start/pause/resume). No push server — decided.
 
 ### Visual language
@@ -72,7 +74,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Polish round (done):** Records index-bar clearance, cards above the list with a top fade (All Records and Top 10) while rows still scroll under the tab bar, Top 10 note as footer; state-colored landscape label/button and amber Pause; Hidden Tools sheet (first-use toggle, sample data, reset) replaces the ladybug menu and reset alert.
 - **iPhone Duo round (done):** min iOS 27.1, size-class black view, Hidden Tools on the amount, side-bar actions, centered side-bar Meter, wide portrait sizing, fold-aware portrait/landscape Meter and Records, Apple-style split Settings everywhere, Alternative Look toggle (Settings sheet + combined Home). See the iPhone Duo section.
 - **Duo adjustments (done, merged):** Records rows keep rounded corners beside the index; Home swapped (Records ⅓ left, Meter right) with no menu and a side-bar Settings gear; Settings reopens on its root after leaving the tab.
-- **Release prep (in progress, branch `release-3.0`):** version 3.0 (1), Touch Fish naming, privacy manifest, export compliance key. See the Release 3.0 section.
+- **Release prep (in progress, branch `release-3.0`):** version 3.0 (1), Touch Fish naming, privacy manifest, export compliance key; toast above the state chip; Live Activity goal ring (compact + minimal) and Watch/CarPlay layout. See the Release 3.0 section.
 
 ## iPhone Duo (done 2026-10-31, branch `iphone-duo`)
 

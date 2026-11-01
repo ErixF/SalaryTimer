@@ -17,8 +17,7 @@ import Foundation
 struct SalaryTimerLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SalaryTimerAttributes.self) { context in
-            MeterActivityView(state: context.state, onDarkBackground: false)
-                .padding(14)
+            LockScreenView(state: context.state)
                 .activityBackgroundTint(nil)
                 .activitySystemActionForegroundColor(nil)
         } dynamicIsland: { context in
@@ -34,13 +33,31 @@ struct SalaryTimerLiveActivity: Widget {
                     .foregroundStyle(.white)
                     .frame(maxWidth: 56, alignment: .leading)
             } compactTrailing: {
-                RateCapsule(state: context.state)
+                GoalRing(state: context.state, lineWidth: 3, symbolSize: 10)
+                    .frame(width: 24, height: 24)
             } minimal: {
-                SymbolBadge(state: context.state)
+                GoalRing(state: context.state, lineWidth: 3, symbolSize: 11)
             }
             .contentMargins(.horizontal, 14, for: .expanded)
             .widgetURL(URL(string: "salarytimer://live"))
             .keylineTint(context.state.tint)
+        }
+        // A custom layout for the Apple Watch Smart Stack and CarPlay.
+        .supplementalActivityFamilies([.small])
+    }
+}
+
+/// Lock Screen view, or the compact Watch / CarPlay layout for the `.small` family.
+private struct LockScreenView: View {
+    let state: SalaryTimerAttributes.ContentState
+    @Environment(\.activityFamily) private var activityFamily
+
+    var body: some View {
+        if activityFamily == .small {
+            SmallMeterView(state: state)
+        } else {
+            MeterActivityView(state: state, onDarkBackground: false)
+                .padding(14)
         }
     }
 }
@@ -54,6 +71,19 @@ private extension SalaryTimerAttributes.ContentState {
     var stateTitle: String { isPaused ? "Paused" : "Running" }
 
     var hourlyRate: Double { earningPerSecond * 3600 }
+
+    /// Total as of the last update from the app (frozen while paused).
+    var lastKnownAmount: Double { amount(at: pausedAt ?? amountAnchorDate) }
+
+    /// When the total reaches `target`, extrapolated from the last update.
+    func date(reaching target: Double) -> Date {
+        amountAnchorDate.addingTimeInterval((target - startingAmount) / earningPerSecond)
+    }
+
+    /// Whether progress can fill on its own from a timer (running with a rate, goal not yet hit).
+    func fillsLive(toward goal: Double) -> Bool {
+        !isPaused && earningPerSecond > 0 && lastKnownAmount < goal
+    }
 }
 
 // MARK: - Lock Screen & expanded
@@ -130,24 +160,17 @@ private struct GoalProgress: View {
     let goal: Double
     let secondary: Color
 
-    private var currentAmount: Double { state.amount(at: state.pausedAt ?? state.amountAnchorDate) }
-
     /// As of the last update from the app; the bar itself fills on its own regardless.
-    private var isReached: Bool { currentAmount >= goal }
-
-    /// When the total reaches `amount`, extrapolated from the last update.
-    private func date(reaching amount: Double) -> Date {
-        state.amountAnchorDate.addingTimeInterval((amount - state.startingAmount) / state.earningPerSecond)
-    }
+    private var isReached: Bool { state.lastKnownAmount >= goal }
 
     var body: some View {
         VStack(spacing: 4) {
             Group {
-                if state.isPaused || state.earningPerSecond <= 0 || isReached {
-                    ProgressView(value: min(1, currentAmount / goal))
+                if !state.fillsLive(toward: goal) {
+                    ProgressView(value: min(1, state.lastKnownAmount / goal))
                 } else {
                     ProgressView(
-                        timerInterval: date(reaching: 0) ... date(reaching: goal),
+                        timerInterval: state.date(reaching: 0) ... state.date(reaching: goal),
                         countsDown: false
                     ) {
                         EmptyView()
@@ -180,37 +203,93 @@ private struct GoalProgress: View {
     }
 }
 
-// MARK: - Compact & minimal
+// MARK: - Goal ring (compact, minimal, Watch)
 
-/// Current hourly rate in a state-colored capsule, snug against the camera.
-/// Whole units only (`$50/hr`) so it fits the compact slot, per HIG's "shortened units".
-private struct RateCapsule: View {
+/// State-colored ring that fills from $0 to the session goal, with the currency symbol inside.
+/// Timer-driven like the goal bar, so it fills without app updates. With no goal it's a full ring,
+/// so the state color still reads at a glance.
+private struct GoalRing: View {
     let state: SalaryTimerAttributes.ContentState
+    let lineWidth: CGFloat
+    let symbolSize: CGFloat
 
     var body: some View {
-        Text("\(Money.string(state.hourlyRate.rounded(), symbol: state.currencySymbol, fractionDigits: 0...0))/hr")
-            .font(.system(size: 13, weight: .bold, design: .rounded))
-            .monospacedDigit()
-            .foregroundStyle(.white)
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(state.tint, in: Capsule())
+        ZStack {
+            // The circular style draws its own faint track behind the fill.
+            progress
+                .progressViewStyle(.circular)
+                .tint(state.tint)
+                .labelsHidden()
+
+            Text(state.currencySymbol)
+                .font(.system(size: symbolSize, weight: .heavy, design: .rounded))
+                .foregroundStyle(state.tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .padding(lineWidth + 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    @ViewBuilder
+    private var progress: some View {
+        if let goal = state.goalAmount, goal > 0 {
+            if state.fillsLive(toward: goal) {
+                ProgressView(
+                    timerInterval: state.date(reaching: 0) ... state.date(reaching: goal),
+                    countsDown: false
+                ) {
+                    EmptyView()
+                } currentValueLabel: {
+                    EmptyView()
+                }
+            } else {
+                ProgressView(value: min(1, state.lastKnownAmount / goal))
+            }
+        } else {
+            ProgressView(value: 1)
+        }
+    }
+
+    private var accessibilityText: String {
+        guard let goal = state.goalAmount, goal > 0 else { return state.stateTitle }
+        return "\(state.stateTitle), goal \(Money.string(goal, symbol: state.currencySymbol, fractionDigits: 0...2))"
     }
 }
 
-/// The currency symbol in a state-colored circle.
-private struct SymbolBadge: View {
+// MARK: - Apple Watch & CarPlay
+
+/// The `.small` family: goal ring on the left, state, live timer and rate beside it.
+/// No buttons (CarPlay disables them, and this is a glance).
+private struct SmallMeterView: View {
     let state: SalaryTimerAttributes.ContentState
 
     var body: some View {
-        Text(state.currencySymbol)
-            .font(.system(size: 13, weight: .heavy, design: .rounded))
-            .foregroundStyle(.white)
-            .minimumScaleFactor(0.5)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(state.tint, in: Circle())
+        HStack(spacing: 10) {
+            GoalRing(state: state, lineWidth: 5, symbolSize: 18)
+                .frame(width: 46, height: 46)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.stateTitle)
+                    .font(.caption2.weight(.bold))
+                    .tracking(0.6)
+                    .textCase(.uppercase)
+                    .foregroundStyle(state.tint)
+
+                LiveTimerText(state: state)
+                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.primary)
+
+                Text("\(Money.string(state.hourlyRate.rounded(), symbol: state.currencySymbol, fractionDigits: 0...0))/hr")
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 10)
     }
 }
 
@@ -263,6 +342,13 @@ extension SalaryTimerAttributes.ContentState {
 }
 
 #Preview("Compact", as: .dynamicIsland(.compact), using: SalaryTimerAttributes.preview) {
+    SalaryTimerLiveActivity()
+} contentStates: {
+    SalaryTimerAttributes.ContentState.previewRunning
+    SalaryTimerAttributes.ContentState.previewPaused
+}
+
+#Preview("Minimal", as: .dynamicIsland(.minimal), using: SalaryTimerAttributes.preview) {
     SalaryTimerLiveActivity()
 } contentStates: {
     SalaryTimerAttributes.ContentState.previewRunning
