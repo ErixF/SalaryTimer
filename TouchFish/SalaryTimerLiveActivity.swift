@@ -70,7 +70,7 @@ private struct MeterActivityView: View {
             HStack(alignment: .center) {
                 StateChip(state: state)
                 Spacer(minLength: 8)
-                Text("≈ \(Money.string(state.hourlyRate, symbol: state.currencySymbol))/hr · \(Money.string(state.earningPerSecond, symbol: state.currencySymbol, fractionDigits: 4...4))/sec")
+                Text("\(Money.string(state.hourlyRate, symbol: state.currencySymbol))/hr ≈ \(Money.string(state.earningPerSecond, symbol: state.currencySymbol, fractionDigits: 4...4))/sec")
                     .font(.caption.weight(.medium))
                     .monospacedDigit()
                     .foregroundStyle(secondary)
