@@ -75,7 +75,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **Polish round (done):** Records index-bar clearance, cards above the list with a top fade (All Records and Top 10) while rows still scroll under the tab bar, Top 10 note as footer; state-colored landscape label/button and amber Pause; Hidden Tools sheet (first-use toggle, sample data, reset) replaces the ladybug menu and reset alert.
 - **iPhone Duo round (done):** min iOS 27.1, size-class black view, Hidden Tools on the amount, side-bar actions, centered side-bar Meter, wide portrait sizing, fold-aware portrait/landscape Meter and Records, Apple-style split Settings everywhere, Alternative Look toggle (Settings sheet + combined Home). See the iPhone Duo section.
 - **Duo adjustments (done, merged):** Records rows keep rounded corners beside the index; Home swapped (Records ⅓ left, Meter right) with no menu and a side-bar Settings gear; Settings reopens on its root after leaving the tab.
-- **Release prep (in progress, branch `release-3.0`):** version 3.0 (1), Touch Fish naming, privacy manifest, export compliance key; toast above the state chip; Live Activity goal ring (compact + minimal) and Watch/CarPlay layout. See the Release 3.0 section.
+- **Release prep (code done, merged; upload pending):** version 3.0 (1), Touch Fish naming, privacy manifest, export compliance key; toast above the state chip; Live Activity goal ring (compact + minimal) and Watch/CarPlay layout. See the Release 3.0 section.
 
 ## iPhone Duo (done 2026-10-31, branch `iphone-duo`)
 
@@ -109,7 +109,7 @@ Apple guidance: memory `iphone-duo-guidelines` (HIG + dev page; read via the JSO
 4. For fold work, a temporary `#if DEBUG` readout of `geo.reservedRegions(kind: .division)` frames is the fastest way to confirm detection (used and removed in this round; values seen: portrait band y373 h40, landscape band x455 w40).
 5. Check each pose in Idle / Running / Paused, light and dark, with Alternative Look on and off.
 
-## Release 3.0 (in progress, branch `release-3.0`)
+## Release 3.0 (in progress, code merged to `main`)
 
 First ever App Store / TestFlight release. Eric bought the Apple Developer Program (Individual) on 2026-10-31 and is waiting for approval. Nothing has been uploaded yet.
 
@@ -139,7 +139,7 @@ First ever App Store / TestFlight release. Eric bought the Apple Developer Progr
 ### Waiting on Eric
 - Approval; screenshot of any signing error in step 2.
 - Whether Carl gets TestFlight / App Store Connect access (Users and Access first).
-- OK to merge `release-3.0` → `main` and push.
+- (Merged and pushed 2026-11-01.)
 - Device pass on the TestFlight build: Live Activity (Lock Screen + Dynamic Island), kill mid-session and relaunch, light/dark, large Dynamic Type, first-use hint on the smallest iPhone.
 
 ## Backlog (next rounds)
