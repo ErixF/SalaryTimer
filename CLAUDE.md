@@ -58,6 +58,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 ## Known gotchas
 
 - **Custom `FormatStyle`s in `Text(.currentDate, format:)` render as grey placeholder bars in Live Activities** (tested on device). Only Apple's built-in date/timer styles tick on their own. A "next dollar" progress bar was also tried and dropped: once full it can't restart without the app.
+- **Live timer `Text(timerInterval:)` always uses tabular digits** (removing `.monospacedDigit()` changes nothing), so a leading "1" (`14:48`, `1:02:03`) looks indented vs. left-aligned text above/below. Accepted as is (Apple's timers do the same); the app can't know when the timer passes 10:00 to nudge it.
 - **Xcode Previews crash** (iOS 27.1 / iPhone Duo sim) on a `List` with rows: "Could not cast UICollectionViewCell to SwiftUI.AnyListCollectionViewCell" from `PreviewsInjection`. Real app is fine. Records `#Preview` is intentionally empty — verify populated Records on device (use the debug sample data). The Settings `Form` previews fine. Live Activity previews occasionally fail to snapshot; retry once, then check on device.
 - Preview thunks are stricter than the real build: button action closures passed through helpers need `@MainActor () -> Void`, and `Button("…", action: method)` can be ambiguous — use a closure.
 - After deleting a file, the first build may fail with "Build input file cannot be found"; just build again.
