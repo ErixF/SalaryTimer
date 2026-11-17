@@ -18,6 +18,7 @@ struct ContentView: View {
     @AppStorage(ProfileKeys.daysPerMonth) private var daysPerMonthText: String = ""
     @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
     @AppStorage(ProfileKeys.sessionGoal) private var sessionGoalText: String = ""
+    @AppStorage(ProfileKeys.superMinimalLandscape) private var superMinimalLandscape = false
 
     /// Set after the first successful Archive & Reset; hides the first-use hint for good.
     @AppStorage("meter.hasArchived") private var hasArchived = false
@@ -614,20 +615,27 @@ struct ContentView: View {
     // MARK: - Landscape
 
     private func landscapeLayout(width: CGFloat, now: Date) -> some View {
-        LandscapeMeter(
-                    state: state,
-                    amountText: amountText(timerStore.netEarned(at: now)),
-                    elapsedText: elapsedClockText(timerStore.elapsed(at: now)),
-                    showsElapsed: width > 700,
-                    onPrimaryAction: {
-                        // Archive & Reset lives only in portrait Paused.
-                        if state == .running {
-                            timerStore.pause()
-                        } else {
-                            timerStore.start()
-                        }
-                    }
-                )
+        let earned = timerStore.netEarned(at: now)
+        return LandscapeMeter(
+            state: state,
+            isSuperMinimal: superMinimalLandscape,
+            amountText: amountText(earned),
+            elapsedText: elapsedClockText(timerStore.elapsed(at: now)),
+            showsElapsed: width > 700,
+            rateText: ValueLabels.rateSummary(hourly: earningPerSecond * 3600, symbol: currencySymbol),
+            goal: SessionGoal.amount(from: sessionGoalText),
+            earned: earned,
+            goalText: { Money.string($0, symbol: currencySymbol, fractionDigits: 0...2) },
+            onPrimaryAction: {
+                // Landscape's only action; no Start gate here (everything else needs portrait).
+                // Archive & Reset lives only in portrait Paused.
+                if state == .running {
+                    timerStore.pause()
+                } else {
+                    timerStore.start()
+                }
+            }
+        )
     }
 
     // MARK: - Formatting
@@ -823,13 +831,22 @@ private struct HiddenToolsSheet: View {
     }
 }
 
-/// Pure black landscape meter: amount and time centred, state label top-left, and a single
-/// bottom-right button (Start / Pause / Resume) revealed by tapping anywhere.
+/// Landscape meter on black (phone landscape, Duo outer landscape). Two looks share one button
+/// (Start / Pause / Resume, bottom-right, hidden after a few seconds, tap anywhere to bring it back):
+/// - statement (default): adapted from the Lock Screen Live Activity — solid state chip and rate on
+///   top, elapsed time over the big amount (leading-aligned), goal bar along the bottom.
+/// - super minimal (`display.superMinimalLandscape`): amount and time centred, state label top-left.
 private struct LandscapeMeter: View {
     let state: MeterState
+    let isSuperMinimal: Bool
     let amountText: String
     let elapsedText: String
+    /// Super minimal only shows the time on wide screens.
     let showsElapsed: Bool
+    let rateText: String
+    let goal: Double?
+    let earned: Double
+    let goalText: (Double) -> String
     let onPrimaryAction: () -> Void
 
     @State private var showsControls = true
@@ -837,6 +854,10 @@ private struct LandscapeMeter: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let controlsVisibleDuration: Duration = .milliseconds(3500)
+    /// One inset on every edge.
+    private let edgeInset: CGFloat = 24
+    /// The goal row keeps its height without a goal, so the hero never moves.
+    private let goalRowHeight: CGFloat = 36
 
     private var stateTitle: String {
         switch state {
@@ -877,34 +898,11 @@ private struct LandscapeMeter: View {
             Color.black
                 .ignoresSafeArea()
 
-            VStack(spacing: 18) {
-                Text(amountText)
-                    .font(.system(size: 150, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.35)
-                    .lineLimit(1)
-                    .foregroundStyle(.white.opacity(0.82))
-
-                if showsElapsed {
-                    Text(elapsedText)
-                        .font(.system(size: 36, weight: .medium, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.82))
-                }
+            if isSuperMinimal {
+                superMinimalContent
+            } else {
+                statementContent
             }
-            .padding(.horizontal, 24)
-        }
-        .overlay(alignment: .topLeading) {
-            stateLabel
-                .padding(.leading, 26)
-                .padding(.top, 22)
-        }
-        .overlay(alignment: .bottomTrailing) {
-            primaryButton
-                .padding(.trailing, 30)
-                .padding(.bottom, 28)
-                .opacity(showsControls ? 1 : 0)
-                .allowsHitTesting(showsControls)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -917,16 +915,134 @@ private struct LandscapeMeter: View {
         }
         .onAppear(perform: revealControls)
         .environment(\.colorScheme, .dark)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+    }
+
+    // MARK: Statement (default)
+
+    private var statementContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center) {
+                pulsing(
+                    Text(stateTitle)
+                        .font(.caption2.weight(.bold))
+                        .tracking(0.8)
+                        .textCase(.uppercase)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(stateTint, in: Capsule())
+                )
+                Spacer(minLength: 12)
+                Text(rateText)
+                    .font(.subheadline.weight(.medium))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(elapsedText)
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .tracking(1)
+                    .foregroundStyle(.white.opacity(0.7))
+                Text(amountText)
+                    .font(.system(size: 120, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                    .foregroundStyle(.white)
+            }
+            .accessibilityElement(children: .combine)
+
+            Spacer(minLength: 8)
+
+            HStack(alignment: .bottom, spacing: 16) {
+                goalBlock
+                    .frame(maxWidth: .infinity, minHeight: goalRowHeight, alignment: .bottomLeading)
+                primaryButton
+            }
+        }
+        .padding(edgeInset)
     }
 
     @ViewBuilder
-    private var stateLabel: some View {
-        let label = Text(stateTitle)
-            .font(.system(size: 12.5, weight: .bold))
-            .tracking(0.8)
-            .textCase(.uppercase)
-            .foregroundStyle(stateTint)
+    private var goalBlock: some View {
+        if let goal {
+            VStack(alignment: .leading, spacing: 6) {
+                ProgressView(value: min(1, max(0, earned / goal)))
+                    .progressViewStyle(.linear)
+                    .tint(stateTint)
+                HStack {
+                    Text(goalText(0))
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text("Goal \(goalText(goal))")
+                        if earned >= goal {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .accessibilityLabel("Goal reached")
+                        }
+                    }
+                }
+                .font(.caption2.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.white.opacity(0.7))
+            }
+            .accessibilityElement(children: .combine)
+        } else {
+            // Holds the row's width so the button stays bottom-right.
+            Color.clear
+                .frame(height: goalRowHeight)
+                .accessibilityHidden(true)
+        }
+    }
 
+    // MARK: Super minimal
+
+    private var superMinimalContent: some View {
+        VStack(spacing: 18) {
+            Text(amountText)
+                .font(.system(size: 150, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .minimumScaleFactor(0.35)
+                .lineLimit(1)
+                .foregroundStyle(.white.opacity(0.82))
+
+            if showsElapsed {
+                Text(elapsedText)
+                    .font(.system(size: 36, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.82))
+            }
+        }
+        .padding(.horizontal, edgeInset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topLeading) {
+            pulsing(
+                Text(stateTitle)
+                    .font(.system(size: 12.5, weight: .bold))
+                    .tracking(0.8)
+                    .textCase(.uppercase)
+                    .foregroundStyle(stateTint)
+            )
+            .padding(edgeInset)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            primaryButton
+                .padding(edgeInset)
+        }
+    }
+
+    // MARK: Shared
+
+    /// Only "Running" pulses, and not under Reduce Motion.
+    @ViewBuilder
+    private func pulsing(_ label: some View) -> some View {
         if state == .running && !reduceMotion {
             label.phaseAnimator([1.0, 0.55]) { content, opacity in
                 content.opacity(opacity)
@@ -951,6 +1067,8 @@ private struct LandscapeMeter: View {
         .buttonStyle(.glassProminent)
         .tint(buttonTint)
         .controlSize(.large)
+        .opacity(showsControls ? 1 : 0)
+        .allowsHitTesting(showsControls)
     }
 
     /// Shows the button and hides it again after a few seconds of no interaction.
