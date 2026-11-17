@@ -142,17 +142,17 @@ struct SettingsView: View {
 
     private var incomeSummary: String {
         if incomeType == 0 {
-            return hourlyRateText.isEmpty ? "Not set" : "\(money(rates.hourlyRate))/hr"
+            return rates.hourlyRate > 0 ? "\(money(rates.hourlyRate))/hr" : ValueLabels.notSet
         }
-        return monthlyIncomeText.isEmpty ? "Not set" : "\(wholeMoney(rates.monthlyIncome))/mo"
+        return rates.monthlyIncome > 0 ? "\(wholeMoney(rates.monthlyIncome))/mo" : ValueLabels.notSet
     }
 
     private var deductionsSummary: String {
-        rates.hasDeductions ? "\(number(rates.deduction))%" : "None"
+        rates.hasDeductions ? "\(number(rates.deduction))%" : ValueLabels.none
     }
 
     private var goalSummary: String {
-        SessionGoal.amount(from: sessionGoalText).map { wholeMoney($0) } ?? "Open"
+        SessionGoal.amount(from: sessionGoalText).map { wholeMoney($0) } ?? ValueLabels.none
     }
 
     // MARK: - Detail pages
@@ -294,38 +294,50 @@ struct SettingsView: View {
     private var rateSection: some View {
         let rates = rates
         return Section {
-            if rates.incomeType == 0 {
-                rateRow("Hourly rate you entered", "\(money(rates.grossHourly))/hr")
+            if rates.grossHourly <= 0 {
+                Text("Enter your income above to see your rate.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             } else {
-                rateRow("Monthly income you entered", wholeMoney(rates.monthlyIncome))
-                rateRow(
-                    "Hours in a month",
-                    "\(number(rates.daysPerMonth)) × \(number(rates.hoursPerDay)) = \(number(rates.monthlyHours)) hrs"
-                )
-                rateRow("Gross hourly rate", "\(money(rates.grossHourly))/hr")
-            }
-
-            if rates.hasDeductions {
-                rateRow(
-                    "Less deductions (\(number(rates.deduction))%)",
-                    "−\(money(rates.grossHourly - rates.netHourly))/hr"
-                )
-            }
-
-            rateRow(
-                rates.hasDeductions ? "Take-home rate" : "Gross rate",
-                "\(money(rates.netHourly))/hr",
-                isResult: true
-            )
-            rateRow("Per second", "\(Money.string(rates.netPerSecond, symbol: currencySymbol, fractionDigits: 4...4))/sec")
-
-            if rates.incomeType == 0 {
-                rateRow("Per 8-hour day", money(rates.netHourly * 8))
+                rateRows(rates)
             }
         } header: {
             Text("Your Rate Calculated")
         }
         .listRowBackground(Color.green.opacity(colorScheme == .dark ? 0.16 : 0.12))
+    }
+
+    /// One row per step of the rate math.
+    @ViewBuilder
+    private func rateRows(_ rates: RateCalculator) -> some View {
+        if rates.incomeType == 0 {
+            rateRow("Hourly rate you entered", "\(money(rates.grossHourly))/hr")
+        } else {
+            rateRow("Monthly income you entered", wholeMoney(rates.monthlyIncome))
+            rateRow(
+                "Hours in a month",
+                "\(number(rates.daysPerMonth)) × \(number(rates.hoursPerDay)) = \(number(rates.monthlyHours)) hrs"
+            )
+            rateRow("Gross hourly rate", "\(money(rates.grossHourly))/hr")
+        }
+
+        if rates.hasDeductions {
+            rateRow(
+                "Less deductions (\(number(rates.deduction))%)",
+                "−\(money(rates.grossHourly - rates.netHourly))/hr"
+            )
+        }
+
+        rateRow(
+            rates.hasDeductions ? "Take-home rate" : "Gross rate",
+            "\(money(rates.netHourly))/hr",
+            isResult: true
+        )
+        rateRow("Per second", "\(Money.string(rates.netPerSecond, symbol: currencySymbol, fractionDigits: 4...4))/sec")
+
+        if rates.incomeType == 0 {
+            rateRow("Per 8-hour day", money(rates.netHourly * 8))
+        }
     }
 
     private func rateRow(_ label: String, _ value: String, isResult: Bool = false) -> some View {

@@ -100,7 +100,7 @@ private struct MeterActivityView: View {
             HStack(alignment: .center) {
                 StateChip(state: state)
                 Spacer(minLength: 8)
-                Text("\(Money.string(state.hourlyRate, symbol: state.currencySymbol))/hr ≈ \(Money.string(state.earningPerSecond, symbol: state.currencySymbol, fractionDigits: 4...4))/sec")
+                Text(ValueLabels.rateSummary(hourly: state.hourlyRate, symbol: state.currencySymbol))
                     .font(.caption.weight(.medium))
                     .monospacedDigit()
                     .foregroundStyle(secondary)
@@ -281,7 +281,9 @@ private struct SmallMeterView: View {
                     .font(.system(size: 24, weight: .heavy, design: .rounded))
                     .foregroundStyle(.primary)
 
-                Text("\(Money.string(state.hourlyRate.rounded(), symbol: state.currencySymbol, fractionDigits: 0...0))/hr")
+                Text(state.hourlyRate > 0
+                     ? "\(Money.string(state.hourlyRate.rounded(), symbol: state.currencySymbol, fractionDigits: 0...0))/hr"
+                     : "No rate")
                     .font(.caption2.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -322,6 +324,17 @@ extension SalaryTimerAttributes.ContentState {
         )
     }
 
+    /// Started with no income set (Start Anyway).
+    fileprivate static var previewNoRate: Self {
+        Self(
+            sessionStartDate: .now.addingTimeInterval(-75),
+            amountAnchorDate: .now,
+            startingAmount: 0,
+            earningPerSecond: 0,
+            goalAmount: 400
+        )
+    }
+
     fileprivate static var previewPaused: Self {
         Self(
             sessionStartDate: .now.addingTimeInterval(-890),
@@ -339,6 +352,7 @@ extension SalaryTimerAttributes.ContentState {
     SalaryTimerAttributes.ContentState.previewRunning
     SalaryTimerAttributes.ContentState.previewReached
     SalaryTimerAttributes.ContentState.previewPaused
+    SalaryTimerAttributes.ContentState.previewNoRate
 }
 
 #Preview("Compact", as: .dynamicIsland(.compact), using: SalaryTimerAttributes.preview) {

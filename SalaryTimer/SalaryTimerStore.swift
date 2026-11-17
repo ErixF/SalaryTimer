@@ -58,7 +58,35 @@ struct RateCalculator {
         )
     }
 
-    var hasDeductions: Bool { deductionPercent != nil }
+    /// Blank or 0% both mean no deductions (the gross rate).
+    var hasDeductions: Bool { (deductionPercent ?? 0) > 0 }
+
+    /// Income fields that are blank or zero for the selected income type.
+    enum MissingIncomeField: CaseIterable {
+        case hourlyRate, monthlyIncome, hoursPerDay, daysPerMonth
+
+        /// Matches the row titles on the Settings Income page.
+        var title: String {
+            switch self {
+            case .hourlyRate: "Hourly Rate"
+            case .monthlyIncome: "Monthly Income"
+            case .hoursPerDay: "Hours / Day"
+            case .daysPerMonth: "Days / Month"
+            }
+        }
+    }
+
+    /// Empty when the income is complete and the meter can earn.
+    var missingFields: [MissingIncomeField] {
+        if incomeType == 0 { return hourlyRate > 0 ? [] : [.hourlyRate] }
+        var missing: [MissingIncomeField] = []
+        if monthlyIncome <= 0 { missing.append(.monthlyIncome) }
+        if hoursPerDay <= 0 { missing.append(.hoursPerDay) }
+        if daysPerMonth <= 0 { missing.append(.daysPerMonth) }
+        return missing
+    }
+
+    var isIncomeSet: Bool { missingFields.isEmpty }
 
     /// Deduction clamped to 0–100%. Blank counts as 0%.
     var deduction: Double { min(100, max(0, deductionPercent ?? 0)) }
@@ -315,7 +343,8 @@ final class SalaryTimerStore {
             updateLiveActivity(at: now)
             return
         }
-        guard segmentNetPerSecond > 0, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        // A $0 rate still gets an activity (user chose Start Anyway); the widget shows "No rate set".
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         let content = ActivityContent(state: liveActivityState(at: now), staleDate: nil)
         do {

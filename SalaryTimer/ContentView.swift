@@ -338,7 +338,7 @@ struct ContentView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: registerHiddenResetTap)
 
-            Text("≈ \(perSecondText(earningPerSecond)) / sec")
+            Text(ValueLabels.perSecond(earningPerSecond, symbol: currencySymbol))
                 .font(.system(size: 15 * heroScale, weight: .semibold))
                 .monospacedDigit()
                 .padding(.horizontal, 14)
@@ -354,10 +354,12 @@ struct ContentView: View {
         let netHourly = earningPerSecond * 3600
         return VStack(spacing: 5) {
             Group {
-                if rates.hasDeductions {
-                    Text("Take-home \(amountText(netHourly))/hr after \(rates.deduction.formatted())% deductions")
+                if netHourly <= 0 {
+                    Text(ValueLabels.noIncome)
+                } else if rates.hasDeductions {
+                    Text("Take-home \(amountText(netHourly))/hr after \(ValueLabels.deductions(rates.deduction))")
                 } else {
-                    Text("Gross \(amountText(netHourly))/hr — no deductions added")
+                    Text("Gross \(amountText(netHourly))/hr — \(ValueLabels.noDeductions.lowercased())")
                 }
                 if let start = timerStore.sessionStartDate {
                     Text("Started \(start.formatted(.dateTime.hour().minute().second()))")
@@ -366,7 +368,7 @@ struct ContentView: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
 
-            if state != .idle {
+            if state != .idle && netHourly > 0 {
                 Text("At this rate: \(amountText(netHourly)) by the hour")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.green)
@@ -389,14 +391,14 @@ struct ContentView: View {
             StatTile(
                 label: "Today so far",
                 value: amountText(todayTotal),
-                detail: today.count == 1 ? "1 session" : "\(today.count) sessions"
+                detail: ValueLabels.sessions(today.count)
             )
             StatTile(
                 label: "Last session",
                 value: last.map { amountText($0.totalEarned) } ?? "—",
                 detail: last.map {
                     "\(SessionFormatters.duration($0.duration)) · \($0.endDate.formatted(date: .omitted, time: .shortened))"
-                } ?? "Nothing archived yet"
+                } ?? ValueLabels.noSessionsYet
             )
         }
     }
@@ -566,10 +568,6 @@ struct ContentView: View {
 
     private func amountText(_ amount: Double) -> String {
         Money.string(amount, symbol: currencySymbol)
-    }
-
-    private func perSecondText(_ value: Double) -> String {
-        Money.string(value, symbol: currencySymbol, fractionDigits: 4...4)
     }
 
     // MARK: - Hidden reset

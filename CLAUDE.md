@@ -34,9 +34,9 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 ### Settings
 - Native `Form` sections, each with a short footer: **Currency** (symbol menu) → **Income** (Income Type menu + matching fields; footer "Changes only affect upcoming sessions.") → **Your Rate Calculated** (green-tinted rows, bold green total) → **Deductions** → **Session Goal**. Values right-aligned with gray units, no boxed fields, headers without "(optional)" (placeholder says Optional).
 - Inputs locked while running, editable while paused (gray status line at top). No "Saved" toast — values auto-save. Focused field is scrolled to center so the keyboard's floating Done button doesn't cover it; 72pt bottom content margin clears the tab bar.
-- Deductions is one optional % (blank = 0% = "Gross"; entered = "Take-home"), clamped 0–100. Hourly and Monthly values are stored separately. Existing `profile.*` keys must stay (user data).
+- Deductions is one optional % (blank **or 0** = Gross, "No deductions"; > 0 = "Take-home"), clamped 0–100. Hourly and Monthly values are stored separately. Existing `profile.*` keys must stay (user data).
 - **Currency symbol:** `$ € £ ¥ ₹ ₩ ₽ ₺ ₱ ฿ R$ kr CHF`, no custom. Always before the number (letter symbols get a space: `kr 12.50`). Label only — no conversion; changing it relabels every amount including old records. All money goes through `Money.string`.
-- **Session goal:** optional `profile.sessionGoal`. Blank = open goal: no card, no bar anywhere.
+- **Session goal:** optional `profile.sessionGoal`. Blank = no goal: no card, no bar anywhere; the Settings row shows "None".
 
 ### Records
 - **Model:** `unitPrice` = session average net/sec; `startDate` and `grossEarned` are optional (nil for pre-2.3 records). Changing deductions never rewrites saved records.
@@ -53,11 +53,13 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 
 ### Visual language
 - SF Pro family only; amount and title use SF Pro Rounded. Glass is for controls and status only (buttons, toasts, landscape button, tab bar, the Meter state chip as tinted glass); content cards are flat translucent fills. Confirmations ("Saved to Records") use the shared `ToastView`, placed outside any `NavigationStack` so it sits just below the Dynamic Island.
+- Empty values read as words via `ValueLabels` (`Shared/`): No rate set / No income set / No deductions / No goal / No sessions yet / Not set / None. Never show a raw `$0.00/hr` or `0%`.
 - Idle blue, Running green, Paused dim green + amber chip. App follows system light/dark (landscape meter is always black). Records and Settings use the navy `ScreenBackground` in dark mode.
 
 ## Known gotchas
 
 - **Custom `FormatStyle`s in `Text(.currentDate, format:)` render as grey placeholder bars in Live Activities** (tested on device). Only Apple's built-in date/timer styles tick on their own. A "next dollar" progress bar was also tried and dropped: once full it can't restart without the app.
+- The Live Activity request used to be skipped at a $0 rate (`segmentNetPerSecond > 0` guard), so Start Anyway users got none. Don't reintroduce a rate guard; the widget shows "No rate set" and its timer-driven bars only divide when `fillsLive` (rate > 0).
 - **Live timer `Text(timerInterval:)` always uses tabular digits** (removing `.monospacedDigit()` changes nothing), so a leading "1" (`14:48`, `1:02:03`) looks indented vs. left-aligned text above/below. Accepted as is (Apple's timers do the same); the app can't know when the timer passes 10:00 to nudge it.
 - **Xcode Previews crash** (iOS 27.1 / iPhone Duo sim) on a `List` with rows: "Could not cast UICollectionViewCell to SwiftUI.AnyListCollectionViewCell" from `PreviewsInjection`. Real app is fine. Records `#Preview` is intentionally empty — verify populated Records on device (use the debug sample data). The Settings `Form` previews fine. Live Activity previews occasionally fail to snapshot; retry once, then check on device.
 - Preview thunks are stricter than the real build: button action closures passed through helpers need `@MainActor () -> Void`, and `Button("…", action: method)` can be ambiguous — use a closure.
@@ -76,6 +78,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **iPhone Duo round (done):** min iOS 27.1, size-class black view, Hidden Tools on the amount, side-bar actions, centered side-bar Meter, wide portrait sizing, fold-aware portrait/landscape Meter and Records, Apple-style split Settings everywhere, Alternative Look toggle (Settings sheet + combined Home). See the iPhone Duo section.
 - **Duo adjustments (done, merged):** Records rows keep rounded corners beside the index; Home swapped (Records ⅓ left, Meter right) with no menu and a side-bar Settings gear; Settings reopens on its root after leaving the tab.
 - **Release prep (code done, merged; upload pending):** version 3.0 (1), Touch Fish naming, privacy manifest, export compliance key; toast above the state chip; Live Activity goal ring (compact + minimal) and Watch/CarPlay layout. See the Release 3.0 section.
+- **Feedback round (in progress, branch `feedback-round`):** P1 Live Activity at $0, `ValueLabels`, 0% = no deductions, `RateCalculator.missingFields`.
 
 ## iPhone Duo (done 2026-10-31, branch `iphone-duo`)
 
