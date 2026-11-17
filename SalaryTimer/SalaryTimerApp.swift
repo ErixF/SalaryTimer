@@ -30,6 +30,8 @@ struct RootTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @AppStorage(ProfileKeys.alternativeLook) private var alternativeLook = false
+    @AppStorage(ProfileKeys.hasSeenWelcome) private var hasSeenWelcome = false
+    @Environment(SalaryTimerStore.self) private var timerStore
 
     @State private var selection: AppTab = .meter
     @State private var showsSettingsSheet = false
@@ -38,6 +40,9 @@ struct RootTabView: View {
     @State private var settingsResetID = UUID()
     /// Lets the Meter open Settings on a specific row (Start gate, setup notice).
     @State private var settingsRouter = SettingsRouter()
+    @State private var showsWelcome = false
+    /// Set by Welcome's "Set Up Income"; Settings opens once the Welcome sheet is gone.
+    @State private var opensIncomeAfterWelcome = false
 
     /// Alternative Look on a wide landscape screen (Duo inner landscape, iPad landscape): Home
     /// combines Records and the Meter, the menu is hidden, and Settings is a side-bar button.
@@ -95,7 +100,28 @@ struct RootTabView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showsWelcome, onDismiss: welcomeDismissed) {
+            WelcomeView(onSetUpIncome: {
+                opensIncomeAfterWelcome = true
+                showsWelcome = false
+            })
+        }
+        .onAppear {
+            // First launch only; a restored session means the user already knows the app.
+            if !hasSeenWelcome && timerStore.state == .idle {
+                showsWelcome = true
+            }
+        }
         .environment(settingsRouter)
+    }
+
+    /// Runs after the Welcome sheet has fully closed, so a Settings sheet can follow it.
+    private func welcomeDismissed() {
+        hasSeenWelcome = true
+        guard opensIncomeAfterWelcome else { return }
+        opensIncomeAfterWelcome = false
+        let field = RateCalculator.fromDefaults().missingFields.first?.settingsField ?? .hourlyRate
+        settingsRouter.open(.income(focusing: field))
     }
 
     private var tabs: some View {

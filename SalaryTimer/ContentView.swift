@@ -21,6 +21,7 @@ struct ContentView: View {
 
     /// Set after the first successful Archive & Reset; hides the first-use hint for good.
     @AppStorage("meter.hasArchived") private var hasArchived = false
+    @AppStorage(ProfileKeys.hasSeenWelcome) private var hasSeenWelcome = false
 
     /// Set by Alternative Look's Home, which has no menu: adds a Settings button to the side bar.
     var onOpenSettings: (@MainActor () -> Void)? = nil
@@ -144,7 +145,7 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showsHiddenTools) {
-                HiddenToolsSheet(hasArchived: $hasArchived, onResetApp: { resetApp() })
+                HiddenToolsSheet(hasArchived: $hasArchived, hasSeenWelcome: $hasSeenWelcome, onResetApp: { resetApp() })
             }
             .alert("Set your income first", isPresented: $showsStartGate) {
                 Button(startGateSetTitle) {
@@ -669,7 +670,8 @@ struct ContentView: View {
         }
     }
 
-    /// Saves any metered time, resets the meter, and clears all Profile inputs.
+    /// Saves any metered time, resets the meter, clears the income, deductions and goal, and
+    /// re-arms the Welcome sheet. Currency and display toggles stay.
     private func resetApp() {
         timerStore.resetAll(in: modelContext)
         incomeType = 0
@@ -678,6 +680,9 @@ struct ContentView: View {
         taxRateText = ""
         hoursPerDayText = ""
         daysPerMonthText = ""
+        sessionGoalText = ""
+        // The welcome screen shows again on the next launch.
+        hasSeenWelcome = false
         resetTapCount = 0
         lastResetTapDate = nil
     }
@@ -736,6 +741,7 @@ private struct StateChip: View {
 /// Reset App is always available. Stays open until Done.
 private struct HiddenToolsSheet: View {
     @Binding var hasArchived: Bool
+    @Binding var hasSeenWelcome: Bool
     let onResetApp: () -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -758,14 +764,19 @@ private struct HiddenToolsSheet: View {
                         hasArchived = false
                         confirmation = "First-use hint will show on next pause"
                     }
+                    Button("Show Welcome on Next Launch", systemImage: "hand.wave") {
+                        hasSeenWelcome = false
+                        confirmation = "Welcome will show on next launch"
+                    }
                     Button("Mark as Returning User", systemImage: "person.crop.circle.badge.checkmark") {
                         hasArchived = true
+                        hasSeenWelcome = true
                         confirmation = "Marked as returning user"
                     }
                 } header: {
                     Text("First Use")
                 } footer: {
-                    Text("A first-time user sees the hint when pausing, until their first Archive & Reset.")
+                    Text("A first-time user sees the welcome screen on first launch, and the hint when pausing until their first Archive & Reset.")
                 }
 
                 Section {
@@ -789,7 +800,7 @@ private struct HiddenToolsSheet: View {
                         confirmsReset = true
                     }
                 } footer: {
-                    Text("Saves any metered time to Records, resets the meter, and clears all settings.")
+                    Text("Saves any metered time to Records, resets the meter, clears income, deductions and goal, and shows the welcome screen again.")
                 }
             }
             .navigationTitle("Hidden Tools")
@@ -806,7 +817,7 @@ private struct HiddenToolsSheet: View {
                     confirmation = "App reset"
                 }
             } message: {
-                Text("Settings will be cleared. Records are kept.")
+                Text("Settings will be cleared and the welcome screen will show again. Records are kept.")
             }
         }
         .presentationDetents([.medium, .large])
