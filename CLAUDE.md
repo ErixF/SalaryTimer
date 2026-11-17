@@ -12,7 +12,7 @@ iOS app that meters how much you earn per second. SwiftUI, SwiftData, ActivityKi
 | `SalaryTimer/AppFont.swift` | Role-based font tokens (see Visual language). |
 | `SalaryTimer/WelcomeView.swift` | First-launch Welcome sheet, presented by `RootTabView`. |
 | `SalaryTimer/SettingsRouter.swift` | `SettingsRouter` (environment object from `RootTabView`): `open(.income(focusing:))` presents Settings and the visible `SettingsView` pushes the pane and focuses the field. |
-| `SalaryTimer/SettingsView.swift` | Settings tab (gear icon; was "Profile"). Apple Settings style: `NavigationSplitView` root list (icon rows Currency / Income / Deductions / Session Goal with current values, Alternative Look toggle) → detail `Form` pages via `paneForm`. Wide screens show list + page side by side (starts on Currency); phones push. `isSheet` adds an X. |
+| `SalaryTimer/SettingsView.swift` | Settings tab (gear icon; was "Profile"). Apple Settings style: `NavigationSplitView` root list (sections Income / Optional Settings / Alternative Look; icon rows with current values; two display toggles; consumes `SettingsRouter` deep links) → detail `Form` pages via `paneForm`. Wide screens show list + page side by side (starts on Currency); phones push. `isSheet` adds an X. |
 | `SalaryTimer/SessionLogView.swift` | Records: All Records (monthly statement: `MonthSelector`, `SessionGrouping.months` → `SessionMonthGroup` / `SessionDayGroup`, index bar, summary) + Top 10. `SessionFormatters` (durations, dates, money via `Money`). |
 | `SalaryTimer/DataSet.swift` | `SalarySession` SwiftData model. |
 | `SalaryTimer/DebugSampleData.swift` | `#if DEBUG` only: add/remove random sample records (ids tracked in `debug.sampleRecordIDs`, so removal never touches real sessions). Triggered from Hidden Tools. |
@@ -89,7 +89,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **iPhone Duo round (done):** min iOS 27.1, size-class black view, Hidden Tools on the amount, side-bar actions, centered side-bar Meter, wide portrait sizing, fold-aware portrait/landscape Meter and Records, Apple-style split Settings everywhere, Alternative Look toggle (Settings sheet + combined Home). See the iPhone Duo section.
 - **Duo adjustments (done, merged):** Records rows keep rounded corners beside the index; Home swapped (Records ⅓ left, Meter right) with no menu and a side-bar Settings gear; Settings reopens on its root after leaving the tab.
 - **Release prep (code done, merged; upload pending):** version 3.0 (1), Touch Fish naming, privacy manifest, export compliance key; toast above the state chip; Live Activity goal ring (compact + minimal) and Watch/CarPlay layout. See the Release 3.0 section.
-- **Feedback round (in progress, branch `feedback-round`):** P1 Live Activity at $0, `ValueLabels`, 0% = no deductions, `RateCalculator.missingFields`. P2 Start gate, setup notice, Settings deep link. P3 Welcome sheet. P4 Meter card groups, Started first, quiet rate line. P5 Settings section headers, amber locked card, Super Minimal Landscape toggle. P6 statement landscape (default) + super minimal option. P7 Records monthly statement. P8 `AppFont` tokens, scaled heroes, matching summary cards. P9 glass-digits spike dropped (see gotchas).
+- **Feedback round (code done 2026-11-17, branch `feedback-round`, awaiting merge approval):** P1 Live Activity at $0, `ValueLabels`, 0% = no deductions, `RateCalculator.missingFields`. P2 Start gate, setup notice, Settings deep link. P3 Welcome sheet. P4 Meter card groups, Started first, quiet rate line. P5 Settings section headers, amber locked card, Super Minimal Landscape toggle. P6 statement landscape (default) + super minimal option. P7 Records monthly statement. P8 `AppFont` tokens, scaled heroes, matching summary cards. P9 glass-digits spike dropped (see gotchas). P10 release check: Release build (Any iOS Device) clean, version still 3.0 (1) in both targets, privacy manifest unchanged (new keys are UserDefaults, already declared).
 
 ## iPhone Duo (done 2026-10-31, branch `iphone-duo`)
 
@@ -154,7 +154,7 @@ First ever App Store / TestFlight release. Eric bought the Apple Developer Progr
 - Approval; screenshot of any signing error in step 2.
 - Whether Carl gets TestFlight / App Store Connect access (Users and Access first).
 - (Merged and pushed 2026-11-01.)
-- Device pass on the TestFlight build: Live Activity (Lock Screen + Dynamic Island), kill mid-session and relaunch, light/dark, large Dynamic Type, first-use hint on the smallest iPhone.
+- Device pass on the TestFlight build: Live Activity (Lock Screen + Dynamic Island + Watch) at $0 (Start Anyway) and with a rate; kill mid-session and relaunch; Welcome on a fresh install → Set Up Income; Start gate + setup notice; Records month view with real data; landscape statement + Super Minimal, with and without a goal; amber locked card in Settings; light/dark; large Dynamic Type; first-use hint and setup notice on the smallest iPhone.
 
 ## Backlog (next rounds)
 
@@ -162,6 +162,8 @@ First ever App Store / TestFlight release. Eric bought the Apple Developer Progr
 - iCloud sync (storage is local SwiftData + AppStorage). Needs model defaults, no unique `id`, and a plan for settings and running sessions across devices — its own round.
 - Verify first-use hint fits on smallest iPhone (iPhone SE width).
 - Release 3.0 to TestFlight: see the Release section (waiting on Developer Program approval).
+- **Siri / App Intents** (after TestFlight build 1; plan in local `PLAN.md` §6): **A** App Shortcuts Start/Pause/Resume/Archive + "earned today" + Live Activity Pause/Resume buttons (`LiveActivityIntent`, store + model move to `Shared/`, no App Group); **B** Control Center control (needs App Group `group.tech.SalaryTimer`, one-time copy of `profile.*`/`meter.*`/`display.*`/`onboarding.*`, privacy reason `1C8F.1`, widget privacy manifest); **C** Siri-readable record entities (deferred).
+- Landscape statement look: tweak after Eric reviews it on device.
 
 ## Working with Eric
 
