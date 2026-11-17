@@ -180,21 +180,8 @@ struct ContentView: View {
                 heroSection(now: now)
                     .padding(.top, 22)
 
-                detailCard(now: now)
+                infoCards(now: now)
                     .padding(.top, barsOnSide ? sideBarHeroGap : 18)
-
-                statsRow
-                    .padding(.top, 18)
-
-                if let goal = SessionGoal.amount(from: sessionGoalText) {
-                    GoalCard(
-                        earned: timerStore.netEarned(at: now),
-                        goal: goal,
-                        state: state,
-                        format: { amountText($0) }
-                    )
-                    .padding(.top, 10)
-                }
 
                 if barsOnSide {
                     // Buttons live in the side bar; only the notice or hint stays in the content.
@@ -298,13 +285,14 @@ struct ContentView: View {
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
-    /// Detail card, today/last-session tiles and the goal card.
+    /// Two captioned groups, used by every portrait and side-bar layout: this session (detail
+    /// card + goal card), then what's already in Records (Today so far / Last session).
     private func infoCards(now: Date) -> some View {
         VStack(spacing: 0) {
-            detailCard(now: now)
+            sectionCaption(state == .idle ? "Next session" : "This session")
 
-            statsRow
-                .padding(.top, 18)
+            detailCard(now: now)
+                .padding(.top, 6)
 
             if let goal = SessionGoal.amount(from: sessionGoalText) {
                 GoalCard(
@@ -315,7 +303,25 @@ struct ContentView: View {
                 )
                 .padding(.top, 10)
             }
+
+            sectionCaption("From Records")
+                .padding(.top, 18)
+
+            statsRow
+                .padding(.top, 6)
         }
+    }
+
+    /// Small uppercase label above a card group.
+    private func sectionCaption(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11.5, weight: .bold))
+            .tracking(0.8)
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 4)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private var screenTitle: some View {
@@ -338,7 +344,7 @@ struct ContentView: View {
 
     private func heroSection(now: Date) -> some View {
         let amount = timerStore.netEarned(at: now)
-        return VStack(spacing: 6) {
+        return VStack(spacing: 4) {
             Text(elapsedClockText(timerStore.elapsed(at: now)))
                 .font(.system(size: 17 * heroScale, weight: .semibold))
                 .tracking(1.2)
@@ -358,13 +364,12 @@ struct ContentView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: registerHiddenResetTap)
 
+            // Quiet supporting line; the amount above is the only loud element.
             Text(ValueLabels.perSecond(earningPerSecond, symbol: currencySymbol))
-                .font(.system(size: 15 * heroScale, weight: .semibold))
+                .font(.system(size: 13 * heroScale, weight: .medium))
                 .monospacedDigit()
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(.primary.opacity(0.1), in: Capsule())
-                .padding(.top, 8)
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
@@ -373,31 +378,23 @@ struct ContentView: View {
     private func detailCard(now: Date) -> some View {
         let netHourly = earningPerSecond * 3600
         return VStack(spacing: 5) {
-            Group {
-                if netHourly <= 0 {
-                    Text(ValueLabels.noIncome)
-                } else if rates.hasDeductions {
-                    Text("Take-home \(amountText(netHourly))/hr after \(ValueLabels.deductions(rates.deduction))")
-                } else {
-                    Text("Gross \(amountText(netHourly))/hr — \(ValueLabels.noDeductions.lowercased())")
-                }
-                if let start = timerStore.sessionStartDate {
-                    Text("Started \(start.formatted(.dateTime.hour().minute().second()))")
-                }
+            if let start = timerStore.sessionStartDate {
+                Text("Started \(start.formatted(.dateTime.hour().minute().second()))")
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-
-            if state != .idle && netHourly > 0 {
-                Text("At this rate: \(amountText(netHourly)) by the hour")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.green)
+            if netHourly <= 0 {
+                Text(ValueLabels.noIncome)
+            } else if rates.hasDeductions {
+                Text("Take-home \(amountText(netHourly))/hr after \(ValueLabels.deductions(rates.deduction))")
+            } else {
+                Text("Gross \(amountText(netHourly))/hr — \(ValueLabels.noDeductions.lowercased())")
             }
         }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
         .contentCard(cornerRadius: 16)
     }
 
