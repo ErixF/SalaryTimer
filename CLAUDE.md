@@ -138,13 +138,13 @@ First ever App Store / TestFlight release. Eric bought the Apple Developer Progr
 
 ### Naming (decided)
 - App Store **Name:** `Touch Fish`, **Subtitle:** `Meter Your Free Money` (both set in App Store Connect, 30-char limit each; "Touch Fish - Meter Your Free Money" is 34 so it can't be the name). Backup if the name is taken: `Touch Fish: Meter Free Money`.
-- **Bundle IDs** (changed 2026-11-17, before any upload, to match the Touch Fish name): app `efx.touchfish`, widget `efx.touchfish.liveactivity` (must stay prefixed by the app ID). Permanent once a build is on App Store Connect — don't change again. The old `tech.SalaryTimer` copy installed from Xcode is a separate app: its data doesn't carry over (delete it from the device once you've noted its totals).
+- **Bundle IDs** (changed 2026-11-17, before any upload, to match the Touch Fish name): app `design.ericfeng.touchfish`, widget `design.ericfeng.touchfish.liveactivity` (must stay prefixed by the app ID; set in both Debug and Release). Briefly `efx.touchfish` the same day (never uploaded). Permanent once a build is on App Store Connect — don't change again. Copies installed from Xcode under an older ID (`tech.SalaryTimer`, `efx.touchfish`) are separate apps: their data doesn't carry over (note totals, then delete them). App IDs registered for old bundle IDs can stay in the developer account unused, or be removed under Certificates, Identifiers & Profiles.
 - **Unchanged on purpose:** Xcode project/target/scheme names `SalaryTimer` / `TouchFish` (renaming risks signing, users never see them). The Live Activity tap URL is `touchfish://live` (no URL scheme is registered; tapping just opens the app).
 
 ### Remaining steps (walk Eric through them; it's his first release)
 1. **Approval** email ("Welcome to the Apple Developer Program"), same Apple ID as Xcode.
 2. **Xcode → Settings → Accounts:** team shows "(Individual)", not "Personal Team". In Signing & Capabilities for **SalaryTimer** and **TouchFishExtension**: automatic signing, paid team. If `DEVELOPMENT_TEAM` (`KWFBN78X3K`) changes, commit the pbxproj change.
-3. **App Store Connect → Apps → + New App:** iOS, name/subtitle above, English, bundle ID `efx.touchfish` (if missing from the menu, run once on device from Xcode with the paid team to register it, or add it under Certificates, Identifiers & Profiles), SKU e.g. `touchfish-001`, Full access.
+3. **App Store Connect → Apps → + New App:** iOS, name/subtitle above, English, bundle ID `design.ericfeng.touchfish` (if missing from the menu, run once on device from Xcode with the paid team to register it, or add it under Certificates, Identifiers & Profiles), SKU e.g. `touchfish-001`, Full access.
 4. **Archive:** destination **Any iOS Device (arm64)** → Product → Archive → Organizer → Distribute App → App Store Connect → Upload.
 5. **Processing** 5–30 min, then the build shows in the TestFlight tab.
 6. **Internal testing:** create a group, add Eric, add the build, install via the TestFlight app (no review needed). TestFlight replaces the Xcode-installed copy; data normally survives but screenshot totals first.
@@ -163,7 +163,7 @@ First ever App Store / TestFlight release. Eric bought the Apple Developer Progr
 - iCloud sync (storage is local SwiftData + AppStorage). Needs model defaults, no unique `id`, and a plan for settings and running sessions across devices — its own round.
 - Verify first-use hint fits on smallest iPhone (iPhone SE width).
 - Release 3.0 to TestFlight: see the Release section (waiting on Developer Program approval).
-- **Siri / App Intents** (after TestFlight build 1; plan in local `PLAN.md` §6): **A** App Shortcuts Start/Pause/Resume/Archive + "earned today" + Live Activity Pause/Resume buttons (`LiveActivityIntent`, store + model move to `Shared/`, no App Group); **B** Control Center control (needs App Group `group.efx.touchfish`, one-time copy of `profile.*`/`meter.*`/`display.*`/`onboarding.*`, privacy reason `1C8F.1`, widget privacy manifest); **C** Siri-readable record entities (deferred).
+- **Siri / App Intents** (after TestFlight build 1; plan in local `PLAN.md` §6): **A** App Shortcuts Start/Pause/Resume/Archive + "earned today" + Live Activity Pause/Resume buttons (`LiveActivityIntent`, store + model move to `Shared/`, no App Group); **B** Control Center control (needs App Group `group.design.ericfeng.touchfish`, one-time copy of `profile.*`/`meter.*`/`display.*`/`onboarding.*`, privacy reason `1C8F.1`, widget privacy manifest); **C** Siri-readable record entities (deferred).
 - Landscape statement look: tweak after Eric reviews it on device.
 
 ## Working with Eric
