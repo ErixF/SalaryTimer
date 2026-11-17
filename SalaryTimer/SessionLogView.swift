@@ -314,6 +314,7 @@ private struct SummaryStrip: View {
                     tile("Total earned", SessionFormatters.money(total, symbol: currencySymbol))
                     tile("Total time", SessionFormatters.duration(seconds))
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 inlineTile("Sessions", "\(sessions.count)")
             }
         } else {
@@ -322,23 +323,27 @@ private struct SummaryStrip: View {
                 tile("Total time", SessionFormatters.duration(seconds))
                 tile("Sessions", "\(sessions.count)")
             }
+            // Equal-height cards: each fills the tallest one's height.
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
+    /// Three across a phone width: tighter padding and tracking so the labels and values fit at
+    /// full size (they only shrink on the narrowest widths or very large text).
     private func tile(_ label: String, _ value: String) -> some View {
-        GroupedCard {
+        GroupedCard(horizontalPadding: 12, fillsHeight: true) {
             Text(label)
-                .font(.system(size: 11, weight: .bold))
-                .tracking(0.6)
+                .font(AppFont.label)
+                .tracking(0.4)
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.8)
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(AppFont.summaryValue)
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.7)
                 .padding(.top, 3)
         }
         .accessibilityElement(children: .combine)
@@ -349,14 +354,14 @@ private struct SummaryStrip: View {
         GroupedCard {
             HStack(alignment: .firstTextBaseline) {
                 Text(label)
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(0.6)
+                    .font(AppFont.label)
+                    .tracking(AppFont.labelTracking)
                     .textCase(.uppercase)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 Text(value)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(AppFont.summaryValue)
                     .monospacedDigit()
                     .lineLimit(1)
             }
@@ -438,7 +443,7 @@ private struct SessionRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(SessionFormatters.money(session.totalEarned, symbol: currencySymbol))
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(AppFont.value)
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)

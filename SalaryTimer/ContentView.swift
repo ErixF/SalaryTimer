@@ -64,6 +64,13 @@ struct ContentView: View {
     /// Wide portrait gets the "bigger iPhone" treatment; side-bar layouts keep normal sizes.
     private var isWidePortrait: Bool { horizontalSizeClass == .regular && !barsOnSide }
     private var heroScale: CGFloat { isWidePortrait ? wideHeroScale : 1 }
+    /// Hero sizes scale with Dynamic Type (capped at XXX Large here) and with `heroScale`.
+    @ScaledMetric(relativeTo: .largeTitle) private var amountSize: CGFloat = 64
+    @ScaledMetric(relativeTo: .title2) private var titleSize: CGFloat = 22
+    /// Two lines of the title, reserved so 1- and 2-line titles don't shift the layout.
+    @ScaledMetric(relativeTo: .title2) private var titleSlotHeight: CGFloat = 58
+    @ScaledMetric(relativeTo: .body) private var timerSize: CGFloat = 17
+    @ScaledMetric(relativeTo: .footnote) private var rateSize: CGFloat = 13
     private let toastDuration: Duration = .milliseconds(2600)
     private let titleOptions = [
         "Getting Paid to Exist",
@@ -316,8 +323,8 @@ struct ContentView: View {
     /// Small uppercase label above a card group.
     private func sectionCaption(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11.5, weight: .bold))
-            .tracking(0.8)
+            .font(AppFont.label)
+            .tracking(AppFont.labelTracking)
             .textCase(.uppercase)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -327,13 +334,13 @@ struct ContentView: View {
 
     private var screenTitle: some View {
         Text(titleOptions[titleIndex])
-            .font(.system(size: 22 * heroScale, weight: .bold, design: .rounded))
+            .font(.system(size: titleSize * heroScale, weight: .bold, design: .rounded))
             .foregroundStyle(.primary)
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .minimumScaleFactor(0.72)
             // Reserve two lines so cycling between 1- and 2-line titles doesn't shift the layout.
-            .frame(maxWidth: .infinity, minHeight: 58, alignment: .center)
+            .frame(maxWidth: .infinity, minHeight: titleSlotHeight * heroScale, alignment: .center)
             .contentShape(Rectangle())
             .contentTransition(.opacity)
             .onTapGesture {
@@ -347,7 +354,7 @@ struct ContentView: View {
         let amount = timerStore.netEarned(at: now)
         return VStack(spacing: 4) {
             Text(elapsedClockText(timerStore.elapsed(at: now)))
-                .font(.system(size: 17 * heroScale, weight: .semibold))
+                .font(.system(size: timerSize * heroScale, weight: .semibold))
                 .tracking(1.2)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
@@ -355,7 +362,7 @@ struct ContentView: View {
             // 10 quick taps on the amount open Hidden Tools (works in every layout
             // except the black landscape view, where a tap shows/hides its button).
             Text(amountText(amount))
-                .font(.system(size: 64 * heroScale, weight: .heavy, design: .rounded))
+                .font(.system(size: amountSize * heroScale, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -367,7 +374,7 @@ struct ContentView: View {
 
             // Quiet supporting line; the amount above is the only loud element.
             Text(ValueLabels.perSecond(earningPerSecond, symbol: currencySymbol))
-                .font(.system(size: 13 * heroScale, weight: .medium))
+                .font(.system(size: rateSize * heroScale, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
@@ -730,7 +737,7 @@ private struct StateChip: View {
                 Text(title)
             }
         }
-        .font(.system(size: 12.5, weight: .bold))
+        .font(AppFont.chip)
         .tracking(0.5)
         .textCase(.uppercase)
         .foregroundStyle(.primary)
@@ -1105,8 +1112,8 @@ private struct GoalCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Session goal")
-                    .font(.system(size: 11.5, weight: .bold))
-                    .tracking(0.8)
+                    .font(AppFont.label)
+                    .tracking(AppFont.labelTracking)
                     .textCase(.uppercase)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 8)
@@ -1155,12 +1162,12 @@ private struct StatTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.system(size: 11.5, weight: .bold))
-                .tracking(0.8)
+                .font(AppFont.label)
+                .tracking(AppFont.labelTracking)
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: 19, weight: .bold, design: .rounded))
+                .font(AppFont.value)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

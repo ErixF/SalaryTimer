@@ -292,6 +292,9 @@ struct ScreenBackground: View {
 
 /// Rounded content card used on Records and Profile; adapts to light/dark.
 struct GroupedCard<Content: View>: View {
+    var horizontalPadding: CGFloat = 16
+    /// Fill the height the parent offers, so cards in a row match the tallest one.
+    var fillsHeight = false
     @ViewBuilder let content: Content
 
     @Environment(\.colorScheme) private var colorScheme
@@ -300,9 +303,9 @@ struct GroupedCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             content
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, horizontalPadding)
         .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
         .background(
             colorScheme == .dark ? Color.white.opacity(0.055) : Color(.secondarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: 20, style: .continuous)
