@@ -39,7 +39,7 @@ struct SalaryTimerLiveActivity: Widget {
                 GoalRing(state: context.state, lineWidth: 3, symbolSize: 11)
             }
             .contentMargins(.horizontal, 14, for: .expanded)
-            .widgetURL(URL(string: "salarytimer://live"))
+            .widgetURL(URL(string: "touchfish://live"))
             .keylineTint(context.state.tint)
         }
         // A custom layout for the Apple Watch Smart Stack and CarPlay.
