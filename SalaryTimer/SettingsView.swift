@@ -30,15 +30,17 @@ struct SettingsView: View {
     @AppStorage(ProfileKeys.alternativeLook) private var alternativeLook = false
 
     @Environment(SalaryTimerStore.self) private var timerStore
+    @Environment(SettingsRouter.self) private var router
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dismiss) private var dismiss
 
     @State private var selection: Pane?
+    @State private var isOnScreen = false
     @FocusState private var focusedField: Field?
 
     /// Input fields, used to scroll the focused one clear of the keyboard and its Done button.
-    private enum Field: Hashable {
+    enum Field: Hashable {
         case hourlyRate, monthlyIncome, hoursPerDay, daysPerMonth, deductions, sessionGoal
     }
 
@@ -79,6 +81,28 @@ struct SettingsView: View {
             if horizontalSizeClass == .regular, selection == nil {
                 selection = .currency
             }
+            isOnScreen = true
+            consumePendingDestination()
+        }
+        .onDisappear { isOnScreen = false }
+        // Only the visible Settings consumes a request (a kept-alive tab copy must not take it).
+        .onChange(of: router.requestID) {
+            if isOnScreen { consumePendingDestination() }
+        }
+    }
+
+    /// Jumps to the requested row (from the Meter's Start gate or setup notice), then focuses its
+    /// field once the page is on screen.
+    private func consumePendingDestination() {
+        guard let destination = router.pending else { return }
+        router.pending = nil
+        Task {
+            // Let the tab or sheet finish appearing before pushing the page.
+            try? await Task.sleep(for: .milliseconds(50))
+            selection = destination.pane
+            guard let field = destination.field else { return }
+            try? await Task.sleep(for: .milliseconds(550))
+            focusedField = field
         }
     }
 
@@ -403,4 +427,5 @@ private struct SettingsIcon: View {
 #Preview {
     SettingsView()
         .environment(SalaryTimerStore(restoresSession: false))
+        .environment(SettingsRouter())
 }

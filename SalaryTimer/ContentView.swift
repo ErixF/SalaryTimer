@@ -35,11 +35,15 @@ struct ContentView: View {
     @State private var titleIndex = 0
     @State private var toastMessage: String? = nil
     @State private var toastTask: Task<Void, Never>? = nil
+    /// Start gate: income fields that were empty when Start/Resume was tapped.
+    @State private var missingFields: [RateCalculator.MissingIncomeField] = []
+    @State private var showsStartGate = false
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(SalaryTimerStore.self) private var timerStore
+    @Environment(SettingsRouter.self) private var settingsRouter
     @Query(sort: \SalarySession.endDate, order: .reverse) private var sessions: [SalarySession]
 
     /// Fixed slot above the buttons so the hint never moves them.
@@ -142,6 +146,15 @@ struct ContentView: View {
             .sheet(isPresented: $showsHiddenTools) {
                 HiddenToolsSheet(hasArchived: $hasArchived, onResetApp: { resetApp() })
             }
+            .alert("Set your income first", isPresented: $showsStartGate) {
+                Button(startGateSetTitle) {
+                    if let first = missingFields.first { openSettings(for: first) }
+                }
+                Button("Start Anyway") { timerStore.start() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(startGateMessage)
+            }
         }
     }
 
@@ -183,8 +196,11 @@ struct ContentView: View {
                 }
 
                 if barsOnSide {
-                    // Buttons live in the side bar; only the first-use hint stays in the content.
-                    if state == .paused && !hasArchived {
+                    // Buttons live in the side bar; only the notice or hint stays in the content.
+                    if showsSetupNotice {
+                        setupNotice
+                            .padding(.top, 12)
+                    } else if state == .paused && !hasArchived {
                         firstUseHint
                             .padding(.top, 12)
                     }
@@ -266,7 +282,10 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
                 infoCards(now: now)
-                if state == .paused && !hasArchived {
+                if showsSetupNotice {
+                    setupNotice
+                        .padding(.top, 12)
+                } else if state == .paused && !hasArchived {
                     firstUseHint
                         .padding(.top, 12)
                 }
@@ -409,17 +428,23 @@ struct ContentView: View {
     /// The hint slot is always present so buttons sit at the same height in every state.
     private var controlSection: some View {
         VStack(spacing: 0) {
-            firstUseHint
-                .opacity(state == .paused && !hasArchived ? 1 : 0)
-                .frame(maxWidth: .infinity, minHeight: hintSlotHeight, maxHeight: hintSlotHeight, alignment: .bottom)
-                .padding(.bottom, 7)
+            // Setup notice (Idle, income missing) wins over the first-use hint.
+            ZStack(alignment: .bottom) {
+                if showsSetupNotice {
+                    setupNotice
+                } else if state == .paused && !hasArchived {
+                    firstUseHint
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: hintSlotHeight, maxHeight: hintSlotHeight, alignment: .bottom)
+            .padding(.bottom, 7)
 
             GlassEffectContainer(spacing: 10) {
                 HStack(spacing: 10) {
                     switch state {
                     case .idle:
                         meterButton("Start", systemImage: "play.fill", prominentTint: .blue) {
-                            timerStore.start()
+                            attemptStart()
                         }
                     case .running:
                         meterButton("Pause", systemImage: "pause.fill", prominentTint: .orange) {
@@ -427,7 +452,7 @@ struct ContentView: View {
                         }
                     case .paused:
                         meterButton("Resume", systemImage: "play.fill", prominentTint: .green) {
-                            timerStore.start()
+                            attemptStart()
                         }
                         meterButton("Archive & Reset", systemImage: "archivebox.fill") {
                             archiveAndReset()
@@ -456,7 +481,7 @@ struct ContentView: View {
     private var sideBarActions: some ToolbarContent {
         if state == .idle {
             ToolbarItem(placement: .primaryAction) {
-                Button("Start", systemImage: "play.fill") { timerStore.start() }
+                Button("Start", systemImage: "play.fill") { attemptStart() }
                     .buttonStyle(.glassProminent)
                     .tint(.blue)
             }
@@ -468,7 +493,7 @@ struct ContentView: View {
             }
         } else {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button("Resume", systemImage: "play.fill") { timerStore.start() }
+                Button("Resume", systemImage: "play.fill") { attemptStart() }
                     .buttonStyle(.glassProminent)
                     .tint(.green)
                 Button("Archive & Reset", systemImage: "archivebox.fill") { archiveAndReset() }
@@ -501,6 +526,61 @@ struct ContentView: View {
             button
                 .buttonStyle(.glass)
         }
+    }
+
+    // MARK: - Income check
+
+    private var showsSetupNotice: Bool { state == .idle && !rates.isIncomeSet }
+
+    /// Idle with no income: one tappable line that jumps to the first missing field.
+    private var setupNotice: some View {
+        Button {
+            if let first = rates.missingFields.first { openSettings(for: first) }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundStyle(.orange)
+                Text("Set your income to start the meter")
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Start/Resume right away when the income is set; otherwise ask first. Landscape skips this:
+    /// its only action is the button (Start Anyway behaviour).
+    private func attemptStart() {
+        let missing = rates.missingFields
+        if missing.isEmpty {
+            timerStore.start()
+        } else {
+            missingFields = missing
+            showsStartGate = true
+        }
+    }
+
+    private func openSettings(for field: RateCalculator.MissingIncomeField) {
+        settingsRouter.open(.income(focusing: field.settingsField))
+    }
+
+    private var startGateSetTitle: String {
+        missingFields.count == 1 ? "Set \(missingFields[0].title)" : "Set Up Income"
+    }
+
+    private var startGateMessage: String {
+        let zero = amountText(0)
+        if missingFields.count == 1 {
+            return "\(missingFields[0].title) isn't set. The meter would stay at \(zero)."
+        }
+        let titles = missingFields.map(\.title).formatted(.list(type: .and))
+        return "\(titles) aren't set. The meter would stay at \(zero)."
     }
 
     private func archiveAndReset() {

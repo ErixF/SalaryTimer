@@ -36,6 +36,8 @@ struct RootTabView: View {
     @State private var isLandscape = false
     /// Changed whenever the user leaves the Settings tab, which rebuilds it on its root list.
     @State private var settingsResetID = UUID()
+    /// Lets the Meter open Settings on a specific row (Start gate, setup notice).
+    @State private var settingsRouter = SettingsRouter()
 
     /// Alternative Look on a wide landscape screen (Duo inner landscape, iPad landscape): Home
     /// combines Records and the Meter, the menu is hidden, and Settings is a side-bar button.
@@ -84,13 +86,16 @@ struct RootTabView: View {
                 selection = .meter
             }
         }
+        .onChange(of: settingsRouter.requestID) { presentSettings() }
         .onChange(of: horizontalSizeClass) { syncSettingsPresentation() }
         .onChange(of: alternativeLook) { syncSettingsPresentation() }
         .sheet(isPresented: $showsSettingsSheet) {
             SettingsView(isSheet: true)
+                .environment(settingsRouter)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .environment(settingsRouter)
     }
 
     private var tabs: some View {
@@ -110,6 +115,17 @@ struct RootTabView: View {
                     .id(settingsResetID)
                     .toolbar(tabBarVisibility, for: .tabBar)
             }
+        }
+    }
+
+    /// Opens Settings the way this layout shows it: a sheet with Alternative Look on wide screens
+    /// and on the Duo Home, otherwise the Settings tab. (Landscape never asks: its only action is
+    /// the Start/Pause/Resume button.)
+    private func presentSettings() {
+        if settingsIsSheet || usesHome {
+            showsSettingsSheet = true
+        } else {
+            selection = .settings
         }
     }
 
