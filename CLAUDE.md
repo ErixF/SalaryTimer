@@ -38,7 +38,8 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 
 ### Settings
 - Native `Form` sections, each with a short footer: **Currency** (symbol menu) → **Income** (Income Type menu + matching fields; footer "Changes only affect upcoming sessions.") → **Your Rate Calculated** (green-tinted rows, bold green total) → **Deductions** → **Session Goal**. Values right-aligned with gray units, no boxed fields, headers without "(optional)" (placeholder says Optional).
-- Inputs locked while running, editable while paused (gray status line at top). No "Saved" toast — values auto-save. Focused field is scrolled to center so the keyboard's floating Done button doesn't cover it; 72pt bottom content margin clears the tab bar.
+- **Root list** sections with headers (like Screen Time): **Income** (Currency, Income) · **Optional Settings** (Deductions, Session Goal) · **Alternative Look** (toggles **iPhone Duo Special Look** = `display.alternativeLook`, and **Super Minimal Landscape** = `display.superMinimalLandscape`, off by default; one shared footer). Toggles are never locked.
+- Inputs locked while running: an amber-tinted card at the top of the list and every page (`lock.fill`, "Locked while running" + "Pause the meter to edit. Changes apply when you resume."). Paused: gray line "Paused — changes apply when you resume." No "Saved" toast — values auto-save. Focused field is scrolled to center so the keyboard's floating Done button doesn't cover it; 72pt bottom content margin clears the tab bar.
 - Deductions is one optional % (blank **or 0** = Gross, "No deductions"; > 0 = "Take-home"), clamped 0–100. Hourly and Monthly values are stored separately. Existing `profile.*` keys must stay (user data).
 - **Currency symbol:** `$ € £ ¥ ₹ ₩ ₽ ₺ ₱ ฿ R$ kr CHF`, no custom. Always before the number (letter symbols get a space: `kr 12.50`). Label only — no conversion; changing it relabels every amount including old records. All money goes through `Money.string`.
 - **Session goal:** optional `profile.sessionGoal`. Blank = no goal: no card, no bar anywhere; the Settings row shows "None".
@@ -84,7 +85,7 @@ New files are picked up automatically (file-system synchronized groups). Swift 5
 - **iPhone Duo round (done):** min iOS 27.1, size-class black view, Hidden Tools on the amount, side-bar actions, centered side-bar Meter, wide portrait sizing, fold-aware portrait/landscape Meter and Records, Apple-style split Settings everywhere, Alternative Look toggle (Settings sheet + combined Home). See the iPhone Duo section.
 - **Duo adjustments (done, merged):** Records rows keep rounded corners beside the index; Home swapped (Records ⅓ left, Meter right) with no menu and a side-bar Settings gear; Settings reopens on its root after leaving the tab.
 - **Release prep (code done, merged; upload pending):** version 3.0 (1), Touch Fish naming, privacy manifest, export compliance key; toast above the state chip; Live Activity goal ring (compact + minimal) and Watch/CarPlay layout. See the Release 3.0 section.
-- **Feedback round (in progress, branch `feedback-round`):** P1 Live Activity at $0, `ValueLabels`, 0% = no deductions, `RateCalculator.missingFields`. P2 Start gate, setup notice, Settings deep link. P3 Welcome sheet. P4 Meter card groups, Started first, quiet rate line.
+- **Feedback round (in progress, branch `feedback-round`):** P1 Live Activity at $0, `ValueLabels`, 0% = no deductions, `RateCalculator.missingFields`. P2 Start gate, setup notice, Settings deep link. P3 Welcome sheet. P4 Meter card groups, Started first, quiet rate line. P5 Settings section headers, amber locked card, Super Minimal Landscape toggle.
 
 ## iPhone Duo (done 2026-10-31, branch `iphone-duo`)
 

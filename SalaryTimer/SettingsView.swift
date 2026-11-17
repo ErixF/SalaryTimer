@@ -28,6 +28,7 @@ struct SettingsView: View {
     @AppStorage(ProfileKeys.currencySymbol) private var currencySymbol: String = Money.defaultSymbol
     @AppStorage(ProfileKeys.sessionGoal) private var sessionGoalText: String = ""
     @AppStorage(ProfileKeys.alternativeLook) private var alternativeLook = false
+    @AppStorage(ProfileKeys.superMinimalLandscape) private var superMinimalLandscape = false
 
     @Environment(SalaryTimerStore.self) private var timerStore
     @Environment(SettingsRouter.self) private var router
@@ -115,25 +116,39 @@ struct SettingsView: View {
             Section {
                 paneRow(.currency, title: "Currency", symbol: "dollarsign", color: .green, value: currencySymbol)
                 paneRow(.income, title: "Income", symbol: "briefcase.fill", color: .blue, value: incomeSummary)
+            } header: {
+                Text("Income")
             }
             .listRowBackground(rootRowBackground)
 
             Section {
                 paneRow(.deductions, title: "Deductions", symbol: "percent", color: .orange, value: deductionsSummary)
                 paneRow(.sessionGoal, title: "Session Goal", symbol: "flag.checkered", color: .red, value: goalSummary)
+            } header: {
+                Text("Optional Settings")
             }
             .listRowBackground(rootRowBackground)
 
+            // Display toggles; not locked while running (they don't affect the rate).
             Section {
                 Toggle(isOn: $alternativeLook) {
                     Label {
-                        Text("Alternative Look")
+                        Text("iPhone Duo Special Look")
                     } icon: {
                         SettingsIcon(symbol: "rectangle.split.2x1", color: .gray)
                     }
                 }
+                Toggle(isOn: $superMinimalLandscape) {
+                    Label {
+                        Text("Super Minimal Landscape")
+                    } icon: {
+                        SettingsIcon(symbol: "iphone.landscape", color: .indigo)
+                    }
+                }
+            } header: {
+                Text("Alternative Look")
             } footer: {
-                Text("Applies to iPhone Duo only.")
+                Text("iPhone Duo Special Look applies to iPhone Duo only. Super Minimal Landscape shows only the amount and time in landscape.")
             }
             .listRowBackground(rootRowBackground)
         }
@@ -295,11 +310,33 @@ struct SettingsView: View {
     private var statusSection: some View {
         switch timerStore.state {
         case .running:
-            statusRow("Locked while the meter is running. Pause or Archive & Reset to make changes.", systemImage: "lock.fill")
+            lockedCard
         case .paused:
-            statusRow("Meter is paused. Changes apply when you resume.", systemImage: "pause.circle.fill")
+            statusRow("Paused — changes apply when you resume.", systemImage: "pause.circle.fill")
         case .idle:
             EmptyView()
+        }
+    }
+
+    /// Running: an amber card so it can't be missed, but calm (no red, no alert).
+    private var lockedCard: some View {
+        Section {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Locked while running")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Pause the meter to edit. Changes apply when you resume.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+            .accessibilityElement(children: .combine)
+            .listRowBackground(Color.orange.opacity(colorScheme == .dark ? 0.2 : 0.14))
         }
     }
 

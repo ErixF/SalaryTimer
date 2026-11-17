@@ -114,6 +114,8 @@ enum ProfileKeys {
     static let sessionGoal = "profile.sessionGoal"
     /// iPhone Duo "Alternative Look": Settings as a sheet on wide screens and the combined Home.
     static let alternativeLook = "display.alternativeLook"
+    /// Phone landscape (and Duo outer landscape) shows only the amount and time.
+    static let superMinimalLandscape = "display.superMinimalLandscape"
     /// Set once the first-launch Welcome sheet has been dismissed; Reset App clears it.
     static let hasSeenWelcome = "onboarding.hasSeenWelcome"
 }
