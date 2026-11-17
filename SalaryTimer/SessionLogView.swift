@@ -66,7 +66,7 @@ struct SessionLogView: View {
                 Text("Top 10").tag(Segment.top)
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal)
+            .padding(.horizontal, 20)
             .padding(.top, 4)
             .padding(.bottom)
 
@@ -120,97 +120,179 @@ struct SessionLogView: View {
 
 // MARK: - All Records
 
+/// Bank-statement style: one month at a time (selector with the month's total), day sections
+/// with their totals, and the section index listing that month's day numbers.
 private struct AllRecordsList: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \SalarySession.endDate, order: .reverse) private var sessions: [SalarySession]
 
-    /// Collapsed group ids. Collapsing only hides rows; the section and its header stay,
-    /// so the index bar keeps every entry and can still jump to a collapsed group.
-    @State private var collapsed: Set<Date> = []
+    /// `nil` = the newest month with records.
+    @State private var selectedMonthID: Date?
 
     let currencySymbol: String
     var stacksSummary = false
 
     var body: some View {
-        let groups = SessionGrouping.groups(sessions)
+        let months = SessionGrouping.months(sessions)
 
-        VStack(spacing: 0) {
-            // Outside the list, so rows never scroll behind the cards.
-            SummaryStrip(sessions: sessions, currencySymbol: currencySymbol, isStacked: stacksSummary)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 4)
+        if let month = months.first(where: { $0.id == selectedMonthID }) ?? months.first {
+            VStack(spacing: 0) {
+                // Outside the list, so rows never scroll behind the cards. All-time totals.
+                SummaryStrip(sessions: sessions, currencySymbol: currencySymbol, isStacked: stacksSummary)
+                    .padding(.horizontal, 20)
 
-            List {
-            ForEach(groups) { group in
-                Section {
-                    // Always one ForEach (empty when collapsed) so the List structure stays static.
-                    ForEach(collapsed.contains(group.id) ? [] : group.sessions) { session in
-                        SessionRow(
-                            session: session,
-                            currencySymbol: currencySymbol,
-                            trailingText: group.kind == .day
-                                ? SessionFormatters.time(session.endDate)
-                                : SessionFormatters.monthDay.string(from: session.endDate)
-                        )
-                        .listRowBackground(RowBackground())
+                MonthSelector(
+                    months: months,
+                    selected: month,
+                    currencySymbol: currencySymbol,
+                    onSelect: { id in
+                        withAnimation(.easeInOut(duration: 0.2)) { selectedMonthID = id }
                     }
-                    .onDelete { indices in
-                        delete(at: indices, in: group)
+                )
+                .padding(.top, 14)
+
+                List {
+                    ForEach(month.days) { day in
+                        Section {
+                            ForEach(day.sessions) { session in
+                                SessionRow(
+                                    session: session,
+                                    currencySymbol: currencySymbol,
+                                    trailingText: SessionFormatters.time(session.endDate)
+                                )
+                                .listRowBackground(RowBackground())
+                            }
+                            .onDelete { indices in
+                                delete(at: indices, in: day)
+                            }
+                        } header: {
+                            dayHeader(day)
+                        }
+                        .sectionIndexLabel(day.indexLabel)
                     }
-                } header: {
-                    groupHeader(group)
                 }
-                .sectionIndexLabel(group.indexLabel)
+                // A fresh list per month, so scroll position and index start at the top.
+                .id(month.id)
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .listSectionIndexVisibility(.visible)
+                .topFade()
             }
-        }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .listSectionIndexVisibility(.visible)
-            .topFade()
+            .onChange(of: months.map(\.id)) { _, ids in
+                // The selected month lost its last record: fall back to the newest month.
+                if let selectedMonthID, !ids.contains(selectedMonthID) {
+                    self.selectedMonthID = nil
+                }
+            }
+        } else {
+            ContentUnavailableView(
+                "No records yet",
+                systemImage: "tray",
+                description: Text("Pause the meter and tap Archive & Reset to save a session here.")
+            )
         }
     }
 
-    private func groupHeader(_ group: SessionDayGroup) -> some View {
-        let isCollapsed = collapsed.contains(group.id)
-        return HStack(spacing: 8) {
-                Text(group.title)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.primary)
+    private func dayHeader(_ day: SessionDayGroup) -> some View {
+        HStack(spacing: 8) {
+            Text(day.title)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.primary)
 
-                Spacer(minLength: 8)
+            Spacer(minLength: 8)
 
-                Text(SessionFormatters.money(group.total, symbol: currencySymbol))
+            Text(SessionFormatters.money(day.total, symbol: currencySymbol))
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.blue)
+        }
+        .textCase(nil)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    private func delete(at indices: IndexSet, in day: SessionDayGroup) {
+        for index in indices {
+            modelContext.delete(day.sessions[index])
+        }
+    }
+}
+
+// MARK: - Month selector
+
+/// ‹  November ▾  ›, with the month's total under it. The arrows step between months that have
+/// records (left = older); the menu lists every such month with its total.
+private struct MonthSelector: View {
+    let months: [SessionMonthGroup]
+    let selected: SessionMonthGroup
+    let currencySymbol: String
+    let onSelect: (Date?) -> Void
+
+    private var index: Int { months.firstIndex { $0.id == selected.id } ?? 0 }
+    private var older: SessionMonthGroup? { index + 1 < months.count ? months[index + 1] : nil }
+    private var newer: SessionMonthGroup? { index > 0 ? months[index - 1] : nil }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            stepButton("chevron.left", label: "Previous month", target: older)
+
+            Spacer(minLength: 8)
+
+            VStack(spacing: 2) {
+                Menu {
+                    ForEach(months) { month in
+                        Button("\(month.title) — \(money(month.total))") { onSelect(month.id) }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(selected.title)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                }
+                // Menus tint their label with the accent color; the month reads as a title, not a link.
+                .tint(.primary)
+                .accessibilityLabel("Month, \(selected.title)")
+
+                Text("\(money(selected.total)) · \(ValueLabels.sessions(selected.sessions.count))")
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(.blue)
-
-                Image(systemName: "chevron.down")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.orange)
-                    .rotationEffect(.degrees(isCollapsed ? -90 : 0))
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                if isCollapsed {
-                    collapsed.remove(group.id)
-                } else {
-                    collapsed.insert(group.id)
-                }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
+
+            Spacer(minLength: 8)
+
+            stepButton("chevron.right", label: "Next month", target: newer)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityAddTraits(.isButton)
-        .textCase(nil)
-        .padding(.leading, -8)
-        .accessibilityLabel("\(group.title), \(SessionFormatters.money(group.total, symbol: currencySymbol))")
-        .accessibilityHint(isCollapsed ? "Expands this group" : "Collapses this group")
+        // The chevron glyphs sit on the 20pt content edge.
+        .padding(.horizontal, 12)
+        .padding(.bottom, 4)
     }
 
-    private func delete(at indices: IndexSet, in group: SessionDayGroup) {
-        for index in indices {
-            modelContext.delete(group.sessions[index])
+    private func stepButton(_ symbol: String, label: String, target: SessionMonthGroup?) -> some View {
+        Button {
+            if let target { onSelect(target.id) }
+        } label: {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .foregroundStyle(target == nil ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.secondary))
+        .disabled(target == nil)
+        .accessibilityLabel(label)
+    }
+
+    private func money(_ value: Double) -> String {
+        SessionFormatters.money(value, symbol: currencySymbol)
     }
 }
 
@@ -293,10 +375,19 @@ private struct TopTenList: View {
     var body: some View {
         let top = Array(sessions.prefix(10))
 
+        if top.isEmpty {
+            ContentUnavailableView("No records yet", systemImage: "trophy")
+        } else {
+            list(top)
+        }
+    }
+
+    private func list(_ top: [SalarySession]) -> some View {
         List {
             Section {
                 ForEach(Array(top.enumerated()), id: \.element.id) { index, session in
-                    HStack(alignment: .top, spacing: 12) {
+                    // Medal / number sits on the amount line, not between the two lines.
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
                         RankBadge(rank: index + 1)
                         SessionRow(
                             session: session,
@@ -344,7 +435,7 @@ private struct SessionRow: View {
     let trailingText: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(SessionFormatters.money(session.totalEarned, symbol: currencySymbol))
                     .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -352,7 +443,7 @@ private struct SessionRow: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
-                Text("\(SessionFormatters.duration(session.duration)) • \(SessionFormatters.unitPrice(session.unitPrice, symbol: currencySymbol))/sec")
+                Text("\(SessionFormatters.duration(session.duration)) · \(SessionFormatters.unitPrice(session.unitPrice, symbol: currencySymbol))/sec")
                     .font(.footnote)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -363,7 +454,6 @@ private struct SessionRow: View {
             Text(trailingText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(.top, 4)
                 .lineLimit(1)
         }
         .padding(.vertical, 4)
@@ -399,7 +489,6 @@ private struct RankBadge: View {
             }
         }
         .frame(width: 28, alignment: .center)
-        .padding(.top, 2)
         .accessibilityLabel("Rank \(rank)")
     }
 }
@@ -407,65 +496,64 @@ private struct RankBadge: View {
 // MARK: - Grouping
 
 struct SessionDayGroup: Identifiable {
-    enum Kind {
-        case day
-        case month
-    }
-
+    /// Start of the day.
     let id: Date
-    let kind: Kind
+    /// Today / Yesterday / "Mon, Nov 3".
     let title: String
+    /// Day of the month, for the section index.
     let indexLabel: String
     let sessions: [SalarySession]
 
     var total: Double { sessions.reduce(0) { $0 + $1.totalEarned } }
 }
 
+struct SessionMonthGroup: Identifiable {
+    /// Start of the month.
+    let id: Date
+    /// "November", or "November 2025" outside the current year.
+    let title: String
+    let days: [SessionDayGroup]
+
+    var sessions: [SalarySession] { days.flatMap(\.sessions) }
+    var total: Double { days.reduce(0) { $0 + $1.total } }
+}
+
 private enum SessionGrouping {
-    /// Days in the past 30 days get their own group; anything older is grouped by month.
-    static func groups(_ sessions: [SalarySession], now: Date = .now) -> [SessionDayGroup] {
+    /// Months newest first; each month's days newest first; each day's sessions newest first.
+    static func months(_ sessions: [SalarySession], now: Date = .now) -> [SessionMonthGroup] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: now)
-        let dailyCutoff = calendar.date(byAdding: .day, value: -30, to: today) ?? today
 
         var dayBuckets: [Date: [SalarySession]] = [:]
-        var monthBuckets: [Date: [SalarySession]] = [:]
         for session in sessions {
-            let day = calendar.startOfDay(for: session.endDate)
-            if day >= dailyCutoff {
-                dayBuckets[day, default: []].append(session)
-            } else {
-                let month = calendar.dateInterval(of: .month, for: day)?.start ?? day
-                monthBuckets[month, default: []].append(session)
-            }
+            dayBuckets[calendar.startOfDay(for: session.endDate), default: []].append(session)
         }
 
-        let days = dayBuckets.keys.sorted(by: >).map { day in
-            SessionDayGroup(
-                id: day,
-                kind: .day,
-                title: dayTitle(day, calendar: calendar),
-                indexLabel: "\(calendar.component(.day, from: day))",
-                sessions: dayBuckets[day, default: []].sorted { $0.endDate > $1.endDate }
+        var monthBuckets: [Date: [SessionDayGroup]] = [:]
+        for day in dayBuckets.keys.sorted(by: >) {
+            let month = calendar.dateInterval(of: .month, for: day)?.start ?? day
+            monthBuckets[month, default: []].append(
+                SessionDayGroup(
+                    id: day,
+                    title: dayTitle(day, calendar: calendar),
+                    indexLabel: "\(calendar.component(.day, from: day))",
+                    sessions: dayBuckets[day, default: []].sorted { $0.endDate > $1.endDate }
+                )
             )
         }
-        let months = monthBuckets.keys.sorted(by: >).map { month in
-            SessionDayGroup(
+
+        return monthBuckets.keys.sorted(by: >).map { month in
+            SessionMonthGroup(
                 id: month,
-                kind: .month,
                 title: monthTitle(month, now: now, calendar: calendar),
-                indexLabel: monthIndexLabel(month, now: now, calendar: calendar),
-                sessions: monthBuckets[month, default: []].sorted { $0.endDate > $1.endDate }
+                days: monthBuckets[month, default: []]
             )
         }
-        // Month ids can coincide with a day id (the 1st), so they're kept as separate lists.
-        return days + months
     }
 
     private static func dayTitle(_ day: Date, calendar: Calendar) -> String {
         if calendar.isDateInToday(day) { return "Today" }
         if calendar.isDateInYesterday(day) { return "Yesterday" }
-        return SessionFormatters.monthDay.string(from: day)
+        return day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 
     private static func monthTitle(_ month: Date, now: Date, calendar: Calendar) -> String {
@@ -473,15 +561,6 @@ private enum SessionGrouping {
             return month.formatted(.dateTime.month(.wide))
         }
         return month.formatted(.dateTime.month(.wide).year())
-    }
-
-    /// Short month, e.g. "Sep", or "Sep ’25" outside the current year.
-    private static func monthIndexLabel(_ month: Date, now: Date, calendar: Calendar) -> String {
-        let name = month.formatted(.dateTime.month(.abbreviated))
-        if calendar.isDate(month, equalTo: now, toGranularity: .year) {
-            return name
-        }
-        return "\(name) ’\(month.formatted(.dateTime.year(.twoDigits)))"
     }
 }
 
